@@ -73,7 +73,8 @@ Once installed, the following commands are available globally — start Claude C
 
 | Command | What it does |
 |---------|--------------|
-| `/gather-context [name]` | Pull fresh data from Slack, GitHub, and Jira. Appends to the live log, compacts older tiers, and rewrites `wiki/activity.md`. Runs automatically every hour while a session is linked, but you can run it manually any time. |
+| `/gather-context [name]` | Pull fresh data from Slack, GitHub, and Jira. Appends to the live log, compacts older tiers, and rewrites `wiki/activity.md`. Runs automatically every hour while a session is linked. Manual invocation also resumes from a paused state and runs a catch-up gather. |
+| `/pause [name]` | Pause auto-refresh for a project. The background loop keeps firing but each gather is a no-op until you run `/gather-context` manually. |
 | `/daily-digest [name]` | Pat synthesizes a short daily summary — what happened, what needs attention, what's coming up. Gathers fresh data first. |
 
 ### Understanding the project

@@ -56,6 +56,14 @@ If `wiki/activity.md`'s "Last updated" timestamp is older than a day, suggest ru
 
 When the user says "gather context for <project>":
 
+### Step 0 — Check the paused flag
+
+Read the State section of `config.md`:
+
+- **Background loop + paused** — exit silently
+- **Foreground + paused** — clear the flag and proceed (manual `/gather-context` doubles as resume + catch-up); tell the user gathering was paused and is now resumed
+- **Not paused** — proceed normally
+
 ### Step 1 — Gather fresh data
 
 Read the project's `config.md` to get the list of sources. For each source, spawn a parallel subagent:

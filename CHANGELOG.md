@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/pause [name]` — pause auto-refresh for a project; gathers become no-ops until manually resumed
+- `gathering_paused` flag in `config.md` State section, respected by `/gather-context`
+- Manual `/gather-context` invocation now doubles as resume — clears the paused flag and runs a catch-up gather
+
 ## [0.1.0] - 2026-04-24
 
 ### Added

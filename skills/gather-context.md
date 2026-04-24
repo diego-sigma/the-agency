@@ -17,7 +17,15 @@ User says "gather context for <project>" or "update context for <project>".
 - Read `<vault>/projects/<project>/config.md`
 - If the project doesn't exist, tell the user and list available projects
 
-### 2. Gather from each source (in parallel)
+### 2. Check the paused flag
+
+Read the State section of `config.md`:
+
+- **If `gathering_paused: true` and running in the background loop** — exit immediately without notifying the user.
+- **If `gathering_paused: true` and running in the foreground** (the user explicitly invoked `/gather-context`) — clear the flag (set to `false` or remove the line), then proceed with the gather. This is the resume path: invoking `/gather-context` manually doubles as "resume + run a catch-up gather." Tell the user gathering was paused and is now resumed.
+- **If the flag is not set or `false`** — proceed normally.
+
+### 3. Gather from each source (in parallel)
 
 Read `last_gathered` from config.md's State section. Use this as the cursor for incremental fetches. If empty (first gather), do a full pull (last 3 days for Slack, last 7 days for GitHub/Jira).
 
@@ -68,7 +76,7 @@ Spawn one subagent per source, passing the `last_gathered` timestamp.
 
 After all subagents complete, update `last_gathered` in config.md to the current ISO timestamp (e.g., `2026-04-11T14:30:00Z`).
 
-### 3. Write to live log
+### 4. Write to live log
 
 Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp header:
 
@@ -87,7 +95,7 @@ Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp head
 
 If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
 
-### 4. Fetch and refresh resources
+### 5. Fetch and refresh resources
 
 **New links:** Review the gathered data from step 2 for any links (URLs in Slack messages, PR descriptions, Jira ticket comments, etc.). For each link:
 
@@ -105,7 +113,7 @@ If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
 - If the content is the same, skip (don't rewrite the file)
 - If the fetch fails (auth wall, 404, timeout), leave the existing content and add a note: `<!-- refresh failed: YYYY-MM-DD — reason -->`
 
-### 5. Compact older tiers
+### 6. Compact older tiers
 
 **Live → Daily:**
 - Check `knowledge/live/` for files from previous days that don't have a matching `knowledge/daily/YYYY-MM-DD.md`
@@ -122,7 +130,7 @@ If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
 **Cleanup:**
 - Delete `knowledge/live/` files older than 7 days
 
-### 6. Update the wiki
+### 7. Update the wiki
 
 The wiki is the primary context for agents, so it must reflect current state after every gather.
 
@@ -168,7 +176,7 @@ If a topic doesn't fit existing pages, create a new wiki page and link it from `
 
 Wiki pages (other than `wiki/activity.md`) reflect **current state** — update in place, don't append history.
 
-### 7. Report to user
+### 8. Report to user
 
 **Only if running in the foreground** (i.e., the user explicitly asked to gather context). If this gather was triggered by a background loop, skip this step entirely — do not notify the user.
 
