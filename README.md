@@ -137,14 +137,3 @@ Edit a project's `config.md` to add or change Slack channels, GitHub repos, or J
 ```
 
 Each project gets its own team, context, and knowledge — fully independent.
-
-## Optional: heartbeat scheduling
-
-Once you're happy with the manual workflow, you can automate context gathering with a cron job:
-
-```bash
-# Gather context every 30 minutes
-*/30 * * * * cd /path/to/the-agency && claude -p "gather context for mcp-server"
-```
-
-Or use Claude Code's built-in `/schedule` command. The agents and vault structure don't change — the only difference is what triggers the gather.
