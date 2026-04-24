@@ -1,0 +1,8 @@
+.the-agency-config
+.the-agency-sessions/
+.DS_Store
+vault/
+
+# Local-only working docs (root-level only — does not match skills/todo.md)
+/PLAN.md
+/TODO.md
