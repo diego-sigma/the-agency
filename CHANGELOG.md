@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/pause [name]` — pause auto-refresh for a project; gathers become no-ops until manually resumed
 - `gathering_paused` flag in `config.md` State section, respected by `/gather-context`
 - Manual `/gather-context` invocation now doubles as resume — clears the paused flag and runs a catch-up gather
+- Background `/gather-context` skips when the user has been idle for over an hour, gated by a `~/.claude/.last-user-activity` marker file refreshed by a `UserPromptSubmit` hook (manual invocation always proceeds)
+- `/link-project` installs the `UserPromptSubmit` hook in `~/.claude/settings.json` if missing
+- Hero image at the top of `README.md` (`assets/social-preview-1280.jpg`, 1280×640); same file intended for the GitHub repo's social preview
+- "When making changes" maintenance checklist in `CONTRIBUTING.md` (skill changes, persona changes, vault structure changes, agent context changes)
+- "Framework maintenance rules" section in `CLAUDE.md` reminding Claude to keep README, CHANGELOG, and CLAUDE.md in sync with code changes
 
 ## [0.1.0] - 2026-04-24
 

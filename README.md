@@ -1,5 +1,9 @@
 # The Agency
 
+<p align="center">
+  <img src="assets/social-preview-1280.jpg" alt="The Agency — Steve, Earl, Debug Bot 500, and Pat" width="800">
+</p>
+
 An AI engineering team for your projects, powered by Claude Code and organized in Obsidian.
 
 Define agent personas with distinct personalities, point them at your project's Slack, GitHub, and Jira, and let them gather context, review PRs, and help drive implementation — all from within Claude Code.
@@ -73,7 +77,7 @@ Once installed, the following commands are available globally — start Claude C
 
 | Command | What it does |
 |---------|--------------|
-| `/gather-context [name]` | Pull fresh data from Slack, GitHub, and Jira. Appends to the live log, compacts older tiers, and rewrites `wiki/activity.md`. Runs automatically every hour while a session is linked. Manual invocation also resumes from a paused state and runs a catch-up gather. |
+| `/gather-context [name]` | Pull fresh data from Slack, GitHub, and Jira. Appends to the live log, compacts older tiers, and rewrites `wiki/activity.md`. Runs automatically every hour while a session is linked, but skips if the user has been idle for over an hour (gated by a `UserPromptSubmit` hook installed by `/link-project`). Manual invocation always proceeds and also resumes from a paused state with a catch-up gather. |
 | `/pause [name]` | Pause auto-refresh for a project. The background loop keeps firing but each gather is a no-op until you run `/gather-context` manually. |
 | `/daily-digest [name]` | Pat synthesizes a short daily summary — what happened, what needs attention, what's coming up. Gathers fresh data first. |
 

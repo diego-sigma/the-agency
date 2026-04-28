@@ -560,3 +560,16 @@ Summarized from [[live/2026-04-08]].
 - When in doubt, ask the user — don't assume
 - Personas in the project's `team/` directory override the templates in this repo
 - **Background gathers are silent.** Scheduled/looped context gathers must run entirely in the background. Do not notify, interrupt, or show results to the user. Write to the vault silently. Only surface gathered information when the user asks for it.
+
+## Framework maintenance rules
+
+When working on the framework itself (this repo — not on a project in someone's vault), follow the "When making changes" checklist in `CONTRIBUTING.md`. The most important rules:
+
+- **Always update `README.md`** when adding, removing, or renaming anything user-facing (slash commands, workflows, directories). The Commands table, the directory tree, and the usage examples are the most commonly stale sections.
+- **Always add a `CHANGELOG.md` entry** under `[Unreleased]` describing the user-visible change.
+- **Keep CLAUDE.md and skills in sync** — if a skill's behavior changes, the corresponding section here likely needs to change too.
+- **Touch every reference** — when renaming or removing something, grep the whole repo and update every mention. The framework is small enough that this is fast.
+- **Templates and existing projects diverge** — changing `templates/project/wiki.md` does not retroactively update existing projects. If the change should apply to existing projects, update `skills/update-project.md` so users can migrate.
+- **Test before committing** — run `./scripts/init.sh` and exercise the affected skill end-to-end. Slash commands that don't symlink correctly are a common silent failure.
+
+If the user asks you to make a change that requires updating multiple files but doesn't mention them all, surface the full list before you start. Better to over-communicate than ship an inconsistent state.

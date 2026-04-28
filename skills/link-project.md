@@ -57,6 +57,27 @@ Run `/loop 60m /gather-context` to keep context fresh throughout the session. Th
 
 The user should never be interrupted by a background gather.
 
+### 5b. Install the user-activity hook (idempotent)
+
+Background gathers skip when the user has been idle for over an hour. This requires a `UserPromptSubmit` hook in `~/.claude/settings.json` that touches `~/.claude/.last-user-activity` on every human prompt (filtering out cron-injected `/gather-context` prompts).
+
+- Read `~/.claude/settings.json`
+- If `hooks.UserPromptSubmit` already includes a hook with `~/.claude/.last-user-activity` in its command, do nothing
+- Otherwise, add the following entry to `hooks.UserPromptSubmit` (creating the parent objects if needed). Preserve any existing hooks under that event:
+
+```json
+{
+  "hooks": [
+    {
+      "type": "command",
+      "command": "p=$(jq -r '.prompt // \"\"'); echo \"$p\" | grep -qE '^/gather-context\\b' || touch ~/.claude/.last-user-activity"
+    }
+  ]
+}
+```
+
+Do this silently — do not surface to the user unless the edit fails.
+
 ### 6. Rename the session
 
 Tell the user to rename the session by running:

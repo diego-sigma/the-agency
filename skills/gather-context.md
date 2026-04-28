@@ -25,6 +25,17 @@ Read the State section of `config.md`:
 - **If `gathering_paused: true` and running in the foreground** (the user explicitly invoked `/gather-context`) — clear the flag (set to `false` or remove the line), then proceed with the gather. This is the resume path: invoking `/gather-context` manually doubles as "resume + run a catch-up gather." Tell the user gathering was paused and is now resumed.
 - **If the flag is not set or `false`** — proceed normally.
 
+### 2b. Check the user-activity marker (background loop only)
+
+If running in the background loop (the cron-fired `/gather-context`), check the mtime of `~/.claude/.last-user-activity`:
+
+- If the file does not exist OR its mtime is older than 1 hour, **exit immediately without notifying the user**. There is no point gathering when no one is around to use the result.
+- Otherwise, proceed normally.
+
+The marker file is touched by a `UserPromptSubmit` hook in `~/.claude/settings.json` whenever the user types a prompt (the hook filters out prompts that begin with `/gather-context` so cron-injected gathers never refresh it). See the "Setup" section below.
+
+This step is skipped entirely in foreground (manual `/gather-context`) — manual invocation always proceeds.
+
 ### 3. Gather from each source (in parallel)
 
 Read `last_gathered` from config.md's State section. Use this as the cursor for incremental fetches. If empty (first gather), do a full pull (last 3 days for Slack, last 7 days for GitHub/Jira).
@@ -181,3 +192,22 @@ Wiki pages (other than `wiki/activity.md`) reflect **current state** — update 
 **Only if running in the foreground** (i.e., the user explicitly asked to gather context). If this gather was triggered by a background loop, skip this step entirely — do not notify the user.
 
 When reporting, tell the user what was gathered, any compaction that happened, wiki pages updated, and notable findings (e.g., "3 PRs awaiting review", "2 blocked tickets", "updated wiki/team.md with new member").
+
+## Setup: user-activity hook (one-time)
+
+For step 2b to work, `~/.claude/settings.json` must include a `UserPromptSubmit` hook that touches `~/.claude/.last-user-activity` on every human prompt **except** prompts that begin with `/gather-context` (so cron-injected gathers don't refresh the marker themselves). The `/link-project` skill installs this hook automatically; if it's missing, add this block under `hooks`:
+
+```json
+"hooks": {
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "p=$(jq -r '.prompt // \"\"'); echo \"$p\" | grep -qE '^/gather-context\\b' || touch ~/.claude/.last-user-activity"
+        }
+      ]
+    }
+  ]
+}
+```
