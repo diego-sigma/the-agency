@@ -8,9 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `/pause [name]` — pause auto-refresh for a project; gathers become no-ops until manually resumed
-- `gathering_paused` flag in `config.md` State section, respected by `/gather-context`
-- Manual `/gather-context` invocation now doubles as resume — clears the paused flag and runs a catch-up gather
+- `/pause [name]` — cancel the scheduled auto-gather cron job for a project (uses `CronDelete`). Manual `/gather-context` runs a catch-up gather AND recreates the cron at the end, so it doubles as resume.
 - Background `/gather-context` skips when the user has been idle for over an hour, gated by a `~/.claude/.last-user-activity` marker file refreshed by a `UserPromptSubmit` hook (manual invocation always proceeds)
 - `/link-project` installs the `UserPromptSubmit` hook in `~/.claude/settings.json` if missing
 - Hero image at the top of `README.md` (`assets/social-preview-1280.jpg`, 1280×640); same file intended for the GitHub repo's social preview

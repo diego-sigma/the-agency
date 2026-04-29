@@ -56,13 +56,11 @@ If `wiki/activity.md`'s "Last updated" timestamp is older than a day, suggest ru
 
 When the user says "gather context for <project>":
 
-### Step 0 — Check the paused flag
+### Step 0 — Check the user-activity marker (background loop only)
 
-Read the State section of `config.md`:
+If running in the background loop, exit silently if `~/.claude/.last-user-activity` is missing or older than 1 hour. Manual `/gather-context` always proceeds.
 
-- **Background loop + paused** — exit silently
-- **Foreground + paused** — clear the flag and proceed (manual `/gather-context` doubles as resume + catch-up); tell the user gathering was paused and is now resumed
-- **Not paused** — proceed normally
+(Pause is implemented via `CronDelete` in `/pause`, not via a config flag — there is no flag to check here. To resume after a `/pause`, the user runs `/gather-context` manually, which also recreates the cron at the end.)
 
 ### Step 1 — Gather fresh data
 

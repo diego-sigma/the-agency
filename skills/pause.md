@@ -1,6 +1,6 @@
 ---
 name: pause
-description: Pauses automatic context gathering for a project. The background loop keeps running but each gather is a no-op until /gather-context is invoked manually.
+description: Cancels the scheduled auto-gather cron job for a project. The hourly background gather stops firing until /gather-context is run manually, which both runs a catch-up gather and recreates the cron.
 ---
 
 # Pause
@@ -17,27 +17,32 @@ User says "/pause", "pause context gathering", or "pause gathers for <project>".
 - Otherwise, use the linked project (from `~/.claude/the-agency-sessions/<CLAUDE_SESSION_ID>`)
 - If neither, list available projects and ask
 
-### 2. Set the paused flag
+### 2. Cancel the scheduled gather job
 
-- Read vault path from `~/.claude/the-agency-config`
-- Open `<vault>/projects/<project>/config.md`
-- In the `## State` section, add or set `gathering_paused: true`
-- Preserve all other state fields (`last_gathered`, etc.)
+- Use `CronList` to enumerate active cron jobs in this session
+- For each job whose `prompt` is exactly `/gather-context <project>` (using the project name from step 1), call `CronDelete` with the job ID
+- Track how many jobs were cancelled (typically 0 or 1)
 
 ### 3. Confirm
 
-Tell the user:
+If at least one job was cancelled:
 
 ```
-Gathering paused for <project>.
+Auto-gathering for <project> cancelled.
 
-The background loop will continue firing, but each automatic gather will be a no-op until you run /gather-context manually. The wiki and knowledge tiers will not be modified.
+The hourly cron has been removed from this session. Run /gather-context manually whenever you want to refresh — it will run a catch-up gather AND recreate the cron, restarting the auto-loop.
 
-Run /gather-context to resume — it will clear the paused flag and run a catch-up gather.
+To stop entirely without resuming on next /gather-context, use /unlink-project.
+```
+
+If no matching job existed:
+
+```
+No auto-gather was scheduled for <project> in this session. Nothing to cancel.
 ```
 
 ## Notes
 
-- This is project-scoped, not session-scoped or global. Each project has its own pause state.
-- The flag is persistent — it survives session restarts. Pausing once means it stays paused until `/gather-context` is invoked manually.
-- To stop the background loop entirely, use `/unlink-project`.
+- Cron jobs are **session-scoped** — they only exist within this Claude Code session. Pausing in one session does not affect a different session linked to the same project.
+- This skill no longer touches `config.md`. The previous `gathering_paused` flag is no longer used.
+- To stop the loop AND unbind the session, use `/unlink-project`.

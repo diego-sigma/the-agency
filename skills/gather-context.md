@@ -17,15 +17,7 @@ User says "gather context for <project>" or "update context for <project>".
 - Read `<vault>/projects/<project>/config.md`
 - If the project doesn't exist, tell the user and list available projects
 
-### 2. Check the paused flag
-
-Read the State section of `config.md`:
-
-- **If `gathering_paused: true` and running in the background loop** — exit immediately without notifying the user.
-- **If `gathering_paused: true` and running in the foreground** (the user explicitly invoked `/gather-context`) — clear the flag (set to `false` or remove the line), then proceed with the gather. This is the resume path: invoking `/gather-context` manually doubles as "resume + run a catch-up gather." Tell the user gathering was paused and is now resumed.
-- **If the flag is not set or `false`** — proceed normally.
-
-### 2b. Check the user-activity marker (background loop only)
+### 2. Check the user-activity marker (background loop only)
 
 If running in the background loop (the cron-fired `/gather-context`), check the mtime of `~/.claude/.last-user-activity`:
 
@@ -194,15 +186,30 @@ If a topic doesn't fit existing pages, create a new wiki page and link it from `
 
 Wiki pages (other than `wiki/activity.md`) reflect **current state** — update in place, don't append history.
 
-### 8. Report to user
+### 8. Re-arm the auto-loop (foreground only)
+
+**Skip this step in the background loop** — it would no-op anyway because the cron is already firing.
+
+Manual `/gather-context` doubles as "resume" after `/pause`. To make that work, check whether a cron job for this project still exists:
+
+- Use `CronList` to enumerate active cron jobs in this session.
+- If no job has `prompt` exactly equal to `/gather-context <project>`, create one with `CronCreate`:
+  - `cron`: `13 * * * *` (hourly at :13, matches the cadence `/link-project` uses)
+  - `prompt`: `/gather-context <project>`
+  - `recurring`: `true`
+- If such a job already exists, do nothing.
+
+This is silent — the user typed `/gather-context` to refresh, not to manage cron. Only mention recreation if you also surfaced something else worth noting (a new commit, a freshly-paused project resuming, etc.).
+
+### 9. Report to user
 
 **Only if running in the foreground** (i.e., the user explicitly asked to gather context). If this gather was triggered by a background loop, skip this step entirely — do not notify the user.
 
-When reporting, tell the user what was gathered, any compaction that happened, wiki pages updated, and notable findings (e.g., "3 PRs awaiting review", "2 blocked tickets", "updated wiki/team.md with new member").
+When reporting, tell the user what was gathered, any compaction that happened, wiki pages updated, and notable findings (e.g., "3 PRs awaiting review", "2 blocked tickets", "updated wiki/team.md with new member"). If the cron was recreated in step 8 (resuming after a `/pause`), mention that briefly.
 
 ## Setup: user-activity hook (one-time)
 
-For step 2b to work, `~/.claude/settings.json` must include a `UserPromptSubmit` hook that touches `~/.claude/.last-user-activity` on every human prompt **except** prompts that begin with `/gather-context` (so cron-injected gathers don't refresh the marker themselves). The `/link-project` skill installs this hook automatically; if it's missing, add this block under `hooks`:
+For step 2 (the user-activity marker check) to work, `~/.claude/settings.json` must include a `UserPromptSubmit` hook that touches `~/.claude/.last-user-activity` on every human prompt **except** prompts that begin with `/gather-context` (so cron-injected gathers don't refresh the marker themselves). The `/link-project` skill installs this hook automatically; if it's missing, add this block under `hooks`:
 
 ```json
 "hooks": {
