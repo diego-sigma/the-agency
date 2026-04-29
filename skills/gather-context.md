@@ -13,7 +13,7 @@ User says "gather context for <project>" or "update context for <project>".
 
 ### 1. Resolve the project
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Read `<vault>/projects/<project>/config.md`
 - If the project doesn't exist, tell the user and list available projects
 
@@ -112,17 +112,24 @@ If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
 
 - **Is it relevant to the project?** (design docs, RFCs, API docs, architecture diagrams, related articles — YES. Login pages, CI logs, dashboards, generic tool links — NO.)
 - **Is it already saved?** Check `knowledge/resources/` for an existing file with the same URL in its frontmatter.
-- If relevant and not already saved, use `WebFetch` to retrieve the content, convert to markdown, and save to `knowledge/resources/<slug>.md`
-- If it can't be fetched (auth wall, 404), save a stub with the URL and reason
-- Link to the resource from the live log entry: `See [[resources/<slug>]]`
+- If relevant and not already saved, fetch the content:
+  - **Google Drive URL** (`docs.google.com/document/d/<id>`, `docs.google.com/spreadsheets/d/<id>`, `drive.google.com/file/d/<id>`, `docs.google.com/presentation/d/<id>`): extract `<id>`, call `mcp__claude_ai_Google_Drive__get_file_metadata` for `modifiedTime`, then `mcp__claude_ai_Google_Drive__read_file_content` for the body. Save with `drive_file_id` and `drive_modified_time` in frontmatter alongside `url` and `fetched`.
+  - **Otherwise**: use `WebFetch`.
+- If it can't be fetched (auth wall, 404), save a stub with the URL and reason.
+- Link to the resource from the live log entry: `See [[resources/<slug>]]`.
 
 **Existing resources:** Scan all files in `knowledge/resources/`. For each file that has a `url` property in its frontmatter:
 
-- The URL is the **source of truth** — the local file is a cached copy
-- Re-fetch the URL using `WebFetch`
-- If the content has changed, update the markdown body and set `fetched` to today's date
-- If the content is the same, skip (don't rewrite the file)
-- If the fetch fails (auth wall, 404, timeout), leave the existing content and add a note: `<!-- refresh failed: YYYY-MM-DD — reason -->`
+- The URL is the **source of truth** — the local file is a cached copy.
+- **If the resource has a `drive_file_id` in frontmatter** (Drive doc):
+  - Call `mcp__claude_ai_Google_Drive__get_file_metadata` with `excludeContentSnippets: true` — a tiny metadata-only call.
+  - If the returned `modifiedTime` is equal to the stored `drive_modified_time`, **skip entirely** (no body fetch, no rewrite).
+  - Otherwise call `mcp__claude_ai_Google_Drive__read_file_content`, update the body, and update both `drive_modified_time` and `fetched` in frontmatter.
+- **Otherwise (non-Drive URL)**:
+  - Re-fetch the URL using `WebFetch`.
+  - If the content has changed, update the markdown body and set `fetched` to today's date.
+  - If the content is the same, skip (don't rewrite the file).
+- If the fetch fails (auth wall, 404, timeout), leave the existing content and add a note: `<!-- refresh failed: YYYY-MM-DD — reason -->`.
 
 ### 6. Compact older tiers
 

@@ -13,15 +13,15 @@ User says "/link-project <project>", "link to <project>", or "work on <project>"
 
 ### 1. Resolve the project
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Check that `<vault>/projects/<project>/` exists
 - If not, list available projects and ask the user to pick one
 
 ### 2. Write the session link
 
-Create the `.the-agency-sessions/` directory if it doesn't exist.
+Create the `~/.claude/the-agency-sessions/` directory if it doesn't exist.
 
-Write a file `.the-agency-sessions/${CLAUDE_SESSION_ID}` with:
+Write a file `~/.claude/the-agency-sessions/${CLAUDE_SESSION_ID}` with:
 
 ```
 project: <project-name>
@@ -78,6 +78,23 @@ Background gathers skip when the user has been idle for over an hour. This requi
 
 Do this silently — do not surface to the user unless the edit fails.
 
+### 5c. Check MCP requirements
+
+Compute the list of MCPs this project depends on, based on `config.md` + `knowledge/resources/`:
+
+| Source signal in config.md or vault | Required MCP / tool |
+|---|---|
+| `Slack` → `channels:` non-empty OR `dms:` non-empty | claude.ai Slack |
+| `Jira` → `project_key:` set OR `epics:` non-empty | claude.ai Atlassian |
+| `GitHub` → `repos:` non-empty | `gh` CLI authenticated (not an MCP — verify with `gh auth status`) |
+| Any file in `knowledge/resources/` has a Drive URL OR `drive_file_id` in frontmatter | claude.ai Google Drive |
+
+For each required MCP, surface a line in the confirmation message (step 7). Do NOT attempt to programmatically connect — Claude Code routes connector auth through `/mcp`, which is interactive. Just tell the user what to verify.
+
+If `gh auth status` exits non-zero, flag it explicitly: "GitHub repos are configured but `gh` is not authenticated — run `gh auth login`."
+
+If a required MCP is in the surfaced list, the user should run `/mcp` and confirm each one shows as authenticated. Sources whose MCP isn't connected will silently produce empty digests during gathers.
+
 ### 6. Rename the session
 
 Tell the user to rename the session by running:
@@ -102,5 +119,16 @@ Context gathered. Auto-refreshing every hour.
 All commands will now use this project's context automatically.
 Use /unlink-project to disconnect.
 
+Required for this project (verify with /mcp):
+<emit one line per required MCP from step 5c, e.g.>
+- claude.ai Slack — 3 channels, 2 DMs configured
+- claude.ai Atlassian — Jira project SIG
+- claude.ai Google Drive — N resources reference Drive docs
+- gh CLI — N GitHub repos (run `gh auth status` to verify)
+
+If a required MCP is not connected, that source will silently produce empty digests in context gathers — fix it with /mcp before relying on the data.
+
 Run /rename <project> to rename this session.
 ```
+
+Omit the "Required for this project" block entirely if no MCPs/tools are required (e.g. a brand-new project with no sources configured yet).

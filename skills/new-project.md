@@ -17,7 +17,7 @@ If the user didn't provide a name, ask for one.
 
 ### 2. Check vault
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - If the vault isn't initialized, run `./scripts/init.sh` first
 - Check if `<vault>/projects/<name>/` already exists — if so, tell the user and stop
 

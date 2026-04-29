@@ -13,7 +13,7 @@ User says "what's the status of <project>", "status for <project>", or "how's <p
 
 ### 1. Resolve the project
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Read `<vault>/projects/<project>/wiki.md` and `<vault>/projects/<project>/wiki/activity.md`
 - If `wiki/activity.md`'s `Last updated` timestamp is older than 1 day, suggest running `gather context for <project>` first
 

@@ -13,7 +13,7 @@ User says "daily digest for <project>", "what happened today on <project>", or "
 
 ### 1. Resolve the project
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Read `<vault>/projects/<project>/config.md` to get sources
 
 ### 2. Gather fresh data

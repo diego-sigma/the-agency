@@ -13,7 +13,7 @@ User says "review PR #X for <project>", "team review PR #X", or similar.
 
 ### 1. Resolve the project and PR
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Read `<vault>/projects/<project>/wiki.md`, `wiki/activity.md`, `wiki/preferences.md`, and `wiki/architecture.md`
 - Fetch the PR diff: `gh pr diff <number> --repo <repo>` (repo from config.md)
 - Fetch the PR description: `gh pr view <number> --repo <repo>`

@@ -33,7 +33,10 @@ Tasks are routed to the right agent automatically:
   - **Slack** — Slack MCP tools for reading channels
   - **GitHub** — `gh` CLI authenticated
   - **Jira** — Atlassian MCP tools for reading tickets
+  - **Google Drive** — Google Drive MCP tools for fetching design docs / RFCs linked from Slack/PRs/Jira
 - [Obsidian](https://obsidian.md) (optional, but recommended for browsing your vault)
+
+`/link-project` will compute which of these are needed for the specific project you're linking (based on `config.md` + saved resources) and surface a per-project checklist. Run `/mcp` to verify the listed connectors are authenticated. If a required connector isn't connected, that source will silently produce empty digests during gathers.
 
 ## Quick start
 
@@ -42,9 +45,13 @@ Tasks are routed to the right agent automatically:
 git clone https://github.com/diego-sigma/the-agency.git
 cd the-agency
 
-# 2. Run init (installs slash commands globally + initializes vault)
+# 2. Run init (installs slash commands globally, writes ~/.claude/the-agency-config,
+#    creates ~/.claude/the-agency-sessions/, and adds a managed block to ~/.claude/CLAUDE.md
+#    so the framework loads from any cwd)
 ./scripts/init.sh
 ```
+
+Init makes the framework cwd-independent: after this you can start Claude Code from any directory and the agent routing, personas, and project linking all just work. Re-run `init.sh` if you move or rename the repo — it refreshes the `repo=` path in `~/.claude/the-agency-config`.
 
 Then open Claude Code in any directory and create your first project:
 

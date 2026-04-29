@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
-CONFIG_FILE="$REPO_DIR/.the-agency-config"
+CONFIG_FILE="$HOME/.claude/the-agency-config"
 TEMPLATES_DIR="$REPO_DIR/templates"
 
 # Check vault is initialized
@@ -12,7 +12,11 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-VAULT_PATH="$(cat "$CONFIG_FILE")"
+VAULT_PATH="$(grep '^vault=' "$CONFIG_FILE" | head -1 | cut -d= -f2-)"
+if [ -z "$VAULT_PATH" ]; then
+  echo "Error: Could not read vault path from $CONFIG_FILE. Run ./scripts/init.sh to repair."
+  exit 1
+fi
 
 # Check for project name argument
 if [ -z "${1:-}" ]; then

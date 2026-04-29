@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
-CONFIG_FILE="$REPO_DIR/.the-agency-config"
+CONFIG_FILE="$HOME/.claude/the-agency-config"
 DEFAULT_VAULT_PATH="$REPO_DIR/vault"
 
 echo "=== The Agency — Vault Setup ==="
@@ -19,8 +19,12 @@ VAULT_PATH="${VAULT_PATH/#\~/$HOME}"
 # Create vault structure
 mkdir -p "$VAULT_PATH/projects"
 
-# Save vault path to config
-echo "$VAULT_PATH" > "$CONFIG_FILE"
+# Save vault path and repo path to config (key=value)
+mkdir -p "$(dirname "$CONFIG_FILE")"
+cat > "$CONFIG_FILE" <<EOF
+vault=$VAULT_PATH
+repo=$REPO_DIR
+EOF
 
 echo ""
 echo "Vault created at: $VAULT_PATH"

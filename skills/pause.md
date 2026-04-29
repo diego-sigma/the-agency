@@ -14,12 +14,12 @@ User says "/pause", "pause context gathering", or "pause gathers for <project>".
 ### 1. Resolve the project
 
 - If an argument is provided, use it as the project name
-- Otherwise, use the linked project (from `.the-agency-sessions/<CLAUDE_SESSION_ID>`)
+- Otherwise, use the linked project (from `~/.claude/the-agency-sessions/<CLAUDE_SESSION_ID>`)
 - If neither, list available projects and ask
 
 ### 2. Set the paused flag
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Open `<vault>/projects/<project>/config.md`
 - In the `## State` section, add or set `gathering_paused: true`
 - Preserve all other state fields (`last_gathered`, etc.)

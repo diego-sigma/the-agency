@@ -18,7 +18,7 @@ User says "/todo", "/todo <task description>", "add todo", "show todos", etc.
 
 ### No argument — list todos
 
-1. Read vault path from `.the-agency-config`
+1. Read vault path from `~/.claude/the-agency-config`
 2. Resolve the linked project (or ask which project)
 3. Read `wiki/todo.md`
 4. Display the to-do list to the user
@@ -27,7 +27,7 @@ User says "/todo", "/todo <task description>", "add todo", "show todos", etc.
 
 ### With argument — add a todo
 
-1. Read vault path from `.the-agency-config`
+1. Read vault path from `~/.claude/the-agency-config`
 2. Resolve the linked project (or ask which project)
 3. Read `wiki/todo.md`
 4. Add a new row to the table:

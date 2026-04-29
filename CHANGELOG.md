@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background `/gather-context` skips when the user has been idle for over an hour, gated by a `~/.claude/.last-user-activity` marker file refreshed by a `UserPromptSubmit` hook (manual invocation always proceeds)
 - `/link-project` installs the `UserPromptSubmit` hook in `~/.claude/settings.json` if missing
 - Hero image at the top of `README.md` (`assets/social-preview-1280.jpg`, 1280×640); same file intended for the GitHub repo's social preview
+- `/gather-context` resource refresh skips Google Drive body fetches when the doc's `modifiedTime` is unchanged — uses `get_file_metadata` as a cheap pre-check, requires `drive_file_id` and `drive_modified_time` in resource frontmatter
+- `/link-project` surfaces a per-project MCP checklist (Slack / Atlassian / Google Drive / `gh`) computed from the project's `config.md` + saved resources, so users know which connectors to verify with `/mcp`
+- README "Prerequisites" lists the Google Drive MCP and explains the per-project checklist
+
+### Changed
+- Framework is now cwd-independent. Runtime state moved out of the repo:
+  - `.the-agency-config` → `~/.claude/the-agency-config` (key=value: `vault=`, `repo=`)
+  - `.the-agency-sessions/` → `~/.claude/the-agency-sessions/`
+  - `scripts/init.sh` injects a managed block into `~/.claude/CLAUDE.md` that points at the framework repo, so agent routing and personas apply from any cwd
+- All skills + framework `CLAUDE.md` updated to reference the new global paths
+- Re-running `./scripts/init.sh` migrates legacy in-repo files automatically (idempotent)
 - "When making changes" maintenance checklist in `CONTRIBUTING.md` (skill changes, persona changes, vault structure changes, agent context changes)
 - "Framework maintenance rules" section in `CLAUDE.md` reminding Claude to keep README, CHANGELOG, and CLAUDE.md in sync with code changes
 

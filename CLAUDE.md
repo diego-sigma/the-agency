@@ -4,7 +4,7 @@ This repo is a framework for running an AI engineering team inside Claude Code. 
 
 ## Active project (check first)
 
-On every interaction, check if `.the-agency-sessions/<current-session-id>` exists in the repo root. Each Claude Code session has its own link file, so multiple sessions can be linked to the same (or different) projects simultaneously.
+On every interaction, check if `~/.claude/the-agency-sessions/<current-session-id>` exists. Each Claude Code session has its own link file, so multiple sessions can be linked to the same (or different) projects simultaneously. The link file is global, so this works regardless of the current working directory.
 
 If a link file exists for the current session, read the `project` field to get the project name. When a project is linked:
 
@@ -17,7 +17,7 @@ If no link file exists for the current session, commands require an explicit pro
 
 ## Vault location
 
-Read the vault path from `.the-agency-config` in this repo's root directory. If the file doesn't exist, the default vault path is `./vault/` (relative to this repo's root).
+Read the vault path from the line starting with `vault=` in `~/.claude/the-agency-config`. The same file's `repo=` line points at this framework repo. If the file doesn't exist, the framework hasn't been installed yet — tell the user to run `./scripts/init.sh` from the cloned repo.
 
 ## Vault structure
 
@@ -45,7 +45,7 @@ Read the vault path from `.the-agency-config` in this repo's root directory. If 
 
 When the user references a project by name:
 
-1. Read the vault path from `.the-agency-config`
+1. Read the vault path from the `vault=` line of `~/.claude/the-agency-config`
 2. Read `<vault>/projects/<project-name>/config.md` to understand the project's data sources
 3. Read `<vault>/projects/<project-name>/wiki.md` for the project overview
 4. Read `<vault>/projects/<project-name>/wiki/activity.md` for current Recent Activity
@@ -446,7 +446,7 @@ Status: draft | in-progress | completed | abandoned
 
 ## Session notes (automatic)
 
-When a project is linked (`.the-agency-sessions/<current-session-id>` exists), you MUST save session notes to the vault automatically. This is not optional.
+When a project is linked (`~/.claude/the-agency-sessions/<current-session-id>` exists), you MUST save session notes to the vault automatically. This is not optional.
 
 ### When to save
 

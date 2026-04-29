@@ -13,7 +13,7 @@ User says "explain <thing> in <project>", "how does <thing> work in <project>", 
 
 ### 1. Resolve the project
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Read `<vault>/projects/<project>/wiki.md`, `wiki/activity.md`, `wiki/preferences.md`, and `wiki/architecture.md` for project state
 - Read `<vault>/projects/<project>/config.md` to identify the repo(s)
 

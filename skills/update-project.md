@@ -15,12 +15,12 @@ User says "/update-project", "/update-project <project>", or "update project".
 ### 1. Resolve the project
 
 - If an argument is provided, use it as the project name
-- Otherwise, use the linked project (from `.the-agency-sessions/`)
+- Otherwise, use the linked project (from `~/.claude/the-agency-sessions/`)
 - If neither, list available projects and ask
 
 ### 2. Read vault path
 
-- Read vault path from `.the-agency-config`
+- Read vault path from `~/.claude/the-agency-config`
 - Confirm the project exists at `<vault>/projects/<project>/`
 
 ### 3. Sync personas
