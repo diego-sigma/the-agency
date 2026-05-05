@@ -47,9 +47,16 @@ Run `/gather-context` for the project right away so the team starts with fresh d
 
 ### 5. Start background context loop
 
-Run `/loop 60m /gather-context` to keep context fresh throughout the session. This MUST run entirely in the background:
+Schedule the auto-gather cron directly via `CronCreate` so it respects quiet hours and weekends (the framework does not gather between 8 pm and 6 am local time, or on Saturdays/Sundays):
 
-- Use `run_in_background: true` for all gather subagents
+- `cron`: `13 6-19 * * 1-5` (hourly at :13, weekdays only, 6 am – 7 pm local — fires at 6:13, 7:13, ..., 19:13 Mon–Fri, then sleeps until the next weekday morning)
+- `prompt`: `/gather-context <project>`
+- `recurring`: `true`
+
+This replaces the older `/loop 60m /gather-context` invocation, which fired 24/7. (The /loop skill only accepts duration intervals like `60m`, not hour- or day-restricted cron expressions, so we call `CronCreate` directly here.)
+
+The cron MUST run entirely in the background:
+
 - Do NOT notify the user when a background gather starts or finishes
 - Do NOT show progress, results, or summaries from background gathers
 - Write outputs silently to the vault (live log, wiki updates, compaction)
