@@ -33,7 +33,7 @@ dow=$(date +%u)          # 1=Mon ... 7=Sun
 
 This step is skipped entirely in foreground (manual invocation always runs).
 
-The cron is also scheduled with `13 6-19 * * 1-5` (see step 9) so it doesn't even fire outside the active window in the first place; this runtime check is the backstop for any sessions that still have an older 24/7 cron expression.
+The cron is also scheduled with `13 6-19 * * 1-5` (see step 10) so it doesn't even fire outside the active window in the first place; this runtime check is the backstop for any sessions that still have an older 24/7 cron expression.
 
 ### 3. Check the user-activity marker (background loop only)
 
@@ -46,7 +46,18 @@ The marker file is touched by a `UserPromptSubmit` hook in `~/.claude/settings.j
 
 This step is skipped entirely in foreground (manual `/gather-context`) — manual invocation always proceeds.
 
-### 4. Gather from each source (in parallel)
+### 4. Check / refresh the scheduler lease (background loop only)
+
+The auto-gather schedule is owned by one session per project (see `/link-project` step 5). Before doing any work in the background loop, verify we still own the lease at `~/.claude/the-agency-sessions/<project>.scheduler`:
+
+- Read `owner_session=` and `last_heartbeat=` from the lease file.
+- **If we own it** (`owner_session == $CLAUDE_SESSION_ID`): refresh `last_heartbeat` to the current ISO 8601 UTC timestamp and proceed.
+- **If someone else owns it and `last_heartbeat` is within the last 24 hours**: another session has taken over scheduling. Cancel **our** cron via `CronList` + `CronDelete` (looking for the job with prompt `/gather-context <project>`) and exit silently. This is the "two sessions briefly raced" cleanup path.
+- **If the lease is stale (heartbeat older than 24 hours) or the file is missing**: claim it for ourselves by writing `owner_session=$CLAUDE_SESSION_ID` and `last_heartbeat=<now>`, then proceed.
+
+This step is skipped entirely in foreground (manual invocation does not interact with the lease and never schedules anything new).
+
+### 5. Gather from each source (in parallel)
 
 Read `last_gathered` from config.md's State section. Use this as the cursor for incremental fetches. If empty (first gather), do a full pull (last 3 days for Slack, last 7 days for GitHub/Jira).
 
@@ -97,7 +108,7 @@ Spawn one subagent per source, passing the `last_gathered` timestamp.
 
 After all subagents complete, update `last_gathered` in config.md to the current ISO timestamp (e.g., `2026-04-11T14:30:00Z`).
 
-### 5. Write to live log
+### 6. Write to live log
 
 Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp header:
 
@@ -116,7 +127,7 @@ Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp head
 
 If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
 
-### 6. Fetch and refresh resources
+### 7. Fetch and refresh resources
 
 **New links:** Review the gathered data from step 2 for any links (URLs in Slack messages, PR descriptions, Jira ticket comments, etc.). For each link:
 
@@ -141,7 +152,7 @@ If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
   - If the content is the same, skip (don't rewrite the file).
 - If the fetch fails (auth wall, 404, timeout), leave the existing content and add a note: `<!-- refresh failed: YYYY-MM-DD — reason -->`.
 
-### 7. Compact older tiers
+### 8. Compact older tiers
 
 **Live → Daily:**
 - Check `knowledge/live/` for files from previous days that don't have a matching `knowledge/daily/YYYY-MM-DD.md`
@@ -158,7 +169,7 @@ If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
 **Cleanup:**
 - Delete `knowledge/live/` files older than 7 days
 
-### 8. Update the wiki
+### 9. Update the wiki
 
 The wiki is the primary context for agents, so it must reflect current state after every gather.
 
@@ -204,26 +215,27 @@ If a topic doesn't fit existing pages, create a new wiki page and link it from `
 
 Wiki pages (other than `wiki/activity.md`) reflect **current state** — update in place, don't append history.
 
-### 9. Re-arm the auto-loop (foreground only)
+### 10. Re-arm the auto-loop (foreground only)
 
 **Skip this step in the background loop** — it would no-op anyway because the cron is already firing.
 
-Manual `/gather-context` doubles as "resume" after `/pause`. To make that work, check whether a cron job for this project still exists:
+Manual `/gather-context` doubles as "resume" after `/pause`. To make that work — but without stomping on another session that already owns the schedule for this project — check both the local cron and the project's scheduler lease at `~/.claude/the-agency-sessions/<project>.scheduler`:
 
-- Use `CronList` to enumerate active cron jobs in this session.
-- If no job has `prompt` exactly equal to `/gather-context <project>`, create one with `CronCreate`:
-  - `cron`: `13 6-19 * * 1-5` (hourly at :13, weekdays only, 6 am to 7 pm local — respects quiet hours and weekends)
-  - `prompt`: `/gather-context <project>`
-  - `recurring`: `true`
-- If such a job already exists, do nothing.
+1. **`CronList`** in this session. If a job with `prompt` exactly equal to `/gather-context <project>` already exists here, do nothing.
+2. Otherwise, read the lease file:
+   - **If it exists, owner is a different session, and `last_heartbeat` is within the last 24 hours**: another live session owns the schedule. Do NOT create a cron here. (No message — the user will share that session's data.)
+   - **If it doesn't exist, the heartbeat is stale (older than 24 hours), or it already names this session**: claim the lease (write `owner_session=$CLAUDE_SESSION_ID`, `last_heartbeat=<now>`) and create the cron with `CronCreate`:
+     - `cron`: `13 6-19 * * 1-5`
+     - `prompt`: `/gather-context <project>`
+     - `recurring`: `true`
 
 This is silent — the user typed `/gather-context` to refresh, not to manage cron. Only mention recreation if you also surfaced something else worth noting (a new commit, a freshly-paused project resuming, etc.).
 
-### 10. Report to user
+### 11. Report to user
 
 **Only if running in the foreground** (i.e., the user explicitly asked to gather context). If this gather was triggered by a background loop, skip this step entirely — do not notify the user.
 
-When reporting, tell the user what was gathered, any compaction that happened, wiki pages updated, and notable findings (e.g., "3 PRs awaiting review", "2 blocked tickets", "updated wiki/team.md with new member"). If the cron was recreated in step 9 (resuming after a `/pause`), mention that briefly.
+When reporting, tell the user what was gathered, any compaction that happened, wiki pages updated, and notable findings (e.g., "3 PRs awaiting review", "2 blocked tickets", "updated wiki/team.md with new member"). If the cron was recreated in step 10 (resuming after a `/pause`), mention that briefly.
 
 ## Setup: user-activity hook (one-time)
 

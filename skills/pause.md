@@ -23,6 +23,12 @@ User says "/pause", "pause context gathering", or "pause gathers for <project>".
 - For each job whose `prompt` is exactly `/gather-context <project>` (using the project name from step 1), call `CronDelete` with the job ID
 - Track how many jobs were cancelled (typically 0 or 1)
 
+### 2b. Release the scheduler lease (if this session owns it)
+
+If `~/.claude/the-agency-sessions/<project>.scheduler` exists and `owner_session == $CLAUDE_SESSION_ID`, delete the file. Releasing the lease lets another linked session pick up scheduling immediately instead of waiting 24 hours for the heartbeat to go stale.
+
+If the lease is missing or owned by another session, do nothing.
+
 ### 3. Confirm
 
 If at least one job was cancelled:

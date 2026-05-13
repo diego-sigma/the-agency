@@ -45,15 +45,30 @@ This allows multiple sessions to be linked to the same project (or different pro
 
 Run `/gather-context` for the project right away so the team starts with fresh data.
 
-### 5. Start background context loop
+### 5. Start background context loop (one schedule per project, not per session)
 
-Schedule the auto-gather cron directly via `CronCreate` so it respects quiet hours and weekends (the framework does not gather between 8 pm and 6 am local time, or on Saturdays/Sundays):
+The auto-gather schedule is **project-scoped**: only one session at a time should own the cron for a given project. Without this, two sessions linked to the same project would both fire the gather every hour and duplicate the work.
 
-- `cron`: `13 6-19 * * 1-5` (hourly at :13, weekdays only, 6 am – 7 pm local — fires at 6:13, 7:13, ..., 19:13 Mon–Fri, then sleeps until the next weekday morning)
+Coordinate via a lease file at `~/.claude/the-agency-sessions/<project>.scheduler` containing two lines:
+
+```
+owner_session=<session-id>
+last_heartbeat=<ISO 8601 UTC>
+```
+
+**Before scheduling, check the lease:**
+
+- If the file exists and `owner_session == $CLAUDE_SESSION_ID`, we already own it — refresh `last_heartbeat` to now and skip creating a new cron (one already exists for us).
+- If the file exists, owner is a different session, and `last_heartbeat` is **within the last 24 hours**, **another live session owns the schedule** — do NOT create a cron in this session. Tell the user in step 7: "Auto-gather already scheduled by another session for this project — this session will share the data."
+- If the file is missing, OR owner is another session but `last_heartbeat` is older than 24 hours (the previous owner's session probably ended), claim the lease ourselves: rewrite the file with `owner_session=$CLAUDE_SESSION_ID` and `last_heartbeat=<now>`, then create the cron below.
+
+**Cron expression** (respects quiet hours and weekends — no gathers between 8 pm and 6 am local, or on Sat/Sun):
+
+- `cron`: `13 6-19 * * 1-5` (hourly at :13, weekdays only, 6 am – 7 pm local)
 - `prompt`: `/gather-context <project>`
 - `recurring`: `true`
 
-This replaces the older `/loop 60m /gather-context` invocation, which fired 24/7. (The /loop skill only accepts duration intervals like `60m`, not hour- or day-restricted cron expressions, so we call `CronCreate` directly here.)
+Use `CronCreate` directly. The /loop skill only accepts duration intervals like `60m`, not hour/day-restricted cron expressions.
 
 The cron MUST run entirely in the background:
 
