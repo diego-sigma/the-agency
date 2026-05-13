@@ -103,6 +103,12 @@ Once installed, the following commands are available globally — start Claude C
 | `/todo` | List the project's to-do items so you can pick what to work on. |
 | `/todo <task>` | Add a new to-do. Agents never modify to-dos — only you can. |
 
+### Staying current
+
+| Command | What it does |
+|---------|--------------|
+| `/pulse [N]` | Triage the latest tech news/developments relevant to your vault projects. Pulls from Hacker News, Anthropic, the modelcontextprotocol GitHub org, ArXiv, GitHub trending, Reddit, TLDR, and (optionally) X. Cross-references stories across sources, prioritizes by upvotes/likes/stars, presents each as a paragraph summary with a 0–3 rating prompt, and learns from your verdicts so future runs surface what matters to you. Default is 10 items per run. |
+
 ### Natural language too
 
 You don't have to use slash commands. Once linked to a project, you can just ask:

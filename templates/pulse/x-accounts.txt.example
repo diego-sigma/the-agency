@@ -1,0 +1,15 @@
+# X / Twitter accounts to follow for /pulse.
+# One handle per line (no leading @). Lines starting with # are ignored.
+#
+# Enable the X source by setting `x: 1.0` (or higher) in
+# <vault>/pulse/interests.md once this file has at least one active handle.
+#
+# /pulse will auto-append handles that appear in >=3 articles per run
+# under an "## Auto-added" heading. Hand-edits in this file are preserved.
+
+# Examples (uncomment to use):
+# AnthropicAI
+# karpathy
+# simonw
+# sama
+# alexalbert__
