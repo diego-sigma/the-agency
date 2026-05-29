@@ -1,0 +1,90 @@
+---
+name: lance
+description: Drafts a pull request description matching the target repo's house style and pre-flights the diff for missed best practices. Uses the Lance persona plus a per-repo profile under templates/pr-author/<repo>.md.
+---
+
+# Lance — PR Specialist
+
+## Trigger
+
+User says `/lance`, "draft a PR", "draft a PR description for this branch", "review my diff before I PR it". Optional argument: a base branch (defaults to `master` or `main`, auto-detected).
+
+## Steps
+
+### 1. Resolve the repo and diff scope
+
+- `cd` to the repo's working copy (the user's cwd or the explicit path).
+- Identify the GitHub repo: `gh repo view --json nameWithOwner -q .nameWithOwner` → e.g. `sigmacomputing/slate`.
+- Extract the short repo name (last path segment) — used to find the profile.
+- Determine the base branch: argument > the repo's default branch (`gh repo view --json defaultBranchRef -q .defaultBranchRef.name`).
+- Determine the head: current branch (`git rev-parse --abbrev-ref HEAD`).
+- Confirm: there must be at least one commit on head not on base. If not, tell the user there's nothing to PR.
+
+### 2. Load the profile
+
+- Look for the repo profile at `<framework-repo>/templates/pr-author/<short-repo-name>.md` (the framework repo path comes from the `repo=` line in `~/.claude/the-agency-config`).
+- If found, load it.
+- If not found, fall back to a generic skeleton (Summary / Test plan / Risk) and tell the user: "No profile for `<short-repo-name>` — using a generic template. Run the analyzer to build a profile (see `templates/pr-author/README.md` if present)."
+
+### 3. Gather diff context
+
+- `git diff <base>...HEAD --stat` (file-level summary)
+- `git diff <base>...HEAD` (full diff — but cap at ~500 lines per file when feeding to Lance; truncate with a note for very large files)
+- `git log <base>..HEAD --pretty=format:'%h %s'` (commit titles, in case they hint at intent)
+
+### 4. Spawn Lance
+
+Spawn a subagent with:
+
+- **Persona body**: `<framework-repo>/templates/personas/lance.md`
+- **Repo profile**: the profile loaded in step 2
+- **Diff context**: the output from step 3
+- **Linked project's `wiki.md` + `wiki/preferences.md`** if a project is linked in this session (per the agency's persona-spawn baseline rules in `CLAUDE.md`)
+
+Lance returns two things (per the persona's "How you present results" contract):
+
+1. A ready-to-paste PR description in the repo's house style
+2. Pre-flight notes — issues found in the diff, grouped by severity
+
+### 5. Present to the user
+
+Print Lance's two outputs side by side:
+
+```
+══════════════════════════════════════════════════════════════════
+PR description (paste this into GitHub)
+══════════════════════════════════════════════════════════════════
+<lance's PR description body>
+
+══════════════════════════════════════════════════════════════════
+Pre-flight notes
+══════════════════════════════════════════════════════════════════
+Block PR (N):
+  • <file:line> — <issue> — <suggested fix>
+  ...
+
+Flag for reviewer (N):
+  • ...
+
+Nits (N):
+  • ...
+```
+
+If pre-flight is empty: `Pre-flight: clean against the <repo> profile.`
+
+### 6. Offer the next step
+
+Tell the user:
+
+```
+Want me to use `gh pr create` to push this PR? (You'll want to review/edit the description first — placeholders are marked with [ ].)
+```
+
+Do NOT run `gh pr create` automatically. The user reviews the description, fills placeholders, and runs the existing `/pr` skill or `gh pr create` themselves.
+
+## Notes
+
+- Lance is **read-only** with respect to the repo — he never modifies code. Pre-flight notes are advisory; if the user wants to act on them, they invoke Earl (via `/team-review` or directly) to implement fixes.
+- The repo profiles live in `templates/pr-author/`. They are the only thing that changes when adapting to a new repo. Re-running the analyzer regenerates them.
+- Each profile has a sibling manifest at `templates/pr-author/<repo>.analyzed.json` listing exactly which PR numbers were sampled. Use the manifest's `highest_pr_number` (or `newest_merged_at`) as the cursor for incremental refreshes — only re-analyze PRs newer than that, then merge findings + update the manifest. See `templates/pr-author/README.md` for the refresh workflow.
+- If the user wants Lance to work on a repo without a profile, the fallback works but flags the missing profile as a one-time TODO.

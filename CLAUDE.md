@@ -268,6 +268,7 @@ When a project is linked, route tasks to the appropriate agent(s) automatically 
 | Code or PR reviews | Steve + Debug Bot 500 |
 | Plans (implementation plans, architecture, strategy) | Earl + Steve |
 | Project questions (status, who, what, when, why) | Pat |
+| Drafting a PR description / pre-flighting a diff before pushing | Lance |
 
 For multi-agent tasks, spawn each agent in sequence, passing prior agents' output as context to subsequent agents. Label each output clearly with the agent's name.
 
