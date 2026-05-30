@@ -103,6 +103,7 @@ Once installed, the following commands are available globally — start Claude C
 |---------|--------------|
 | `/team-review <PR>` | Run a PR through the multi-agent review pipeline: Debug Bot 500 (correctness/security/edge cases) → Steve (architecture/long-term implications). Reviews are saved to the vault and you decide whether to post to GitHub. |
 | `/lance` | Lance drafts a PR description for your current branch in the target repo's house style (sampled from past PRs) and pre-flights the diff for missed best practices. Per-repo profiles live in `templates/pr-author/<repo>.md`. Outputs are advisory — Lance never pushes. |
+| `/earl-learn [repo]` | Mine your authored, merged PRs in a Sigma repo for review comments that you accepted (thread resolved, no pushback). Cluster into themes and write them to `<vault>/earl-lessons/<repo>.md`. Earl reads that file whenever he's spawned on a task touching that repo — so he learns not to repeat the same mistakes. Bootstrap on first run; incremental refresh thereafter (manifest cursor at `<repo>.analyzed.json`). Lessons are repo-scoped, not project-scoped. |
 | `/todo` | List the project's to-do items so you can pick what to work on. |
 | `/todo <task>` | Add a new to-do. Agents never modify to-dos — only you can. |
 

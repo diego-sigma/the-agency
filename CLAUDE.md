@@ -39,6 +39,15 @@ Read the vault path from the line starting with `vault=` in `~/.claude/the-agenc
     sessions/       — auto-saved session notes (decisions, actions, context learned, never compacted)
     plans/          — implementation plans, architecture proposals, strategies (never compacted)
     resources/      — fetched content from links shared in the project (web pages, docs, etc.)
+
+# Global (not per-project): personal feedback Earl has earned, per repo
+<vault>/earl-lessons/
+  <repo>.md         — clustered themes from review comments on the user's PRs in <repo>
+                      that were accepted (resolved thread, no pushback, follow-up commit).
+                      Read by Earl whenever he's spawned on a task that touches that repo,
+                      regardless of which agency project is linked.
+  <repo>.analyzed.json — manifest of which PR numbers have been mined; used by
+                      /earl-learn for incremental refreshes.
 ```
 
 ## How to resolve a project
@@ -254,7 +263,8 @@ When executing a task that involves an agent persona:
    - `wiki/activity.md` — current Recent Activity (volatile, always fresh)
    - `wiki/preferences.md` — project-specific working rules
 4. Include any other wiki pages relevant to the task (e.g., `wiki/architecture.md` for code reviews, `wiki/team.md` when asking about people)
-5. The subagent should respond and behave as that persona — tone, focus areas, decision-making style
+5. **For Earl specifically**: if the task touches a known repo (cwd is inside one, or the task explicitly mentions one) AND `<vault>/earl-lessons/<repo>.md` exists, include that lessons file in Earl's context too. These are accepted-review-comment patterns from the user's own past PRs in that repo — Earl has earned this feedback and should treat it as a checklist to avoid the same critiques. Lessons are repo-scoped, not project-scoped, and apply across every agency project that touches the same repo.
+6. The subagent should respond and behave as that persona — tone, focus areas, decision-making style
 
 Always tell the user which agent is "speaking" when relaying output from a persona.
 
