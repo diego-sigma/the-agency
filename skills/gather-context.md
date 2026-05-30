@@ -33,14 +33,16 @@ dow=$(date +%u)          # 1=Mon ... 7=Sun
 
 This step is skipped entirely in foreground (manual invocation always runs).
 
-The cron is also scheduled with `13 6-19 * * 1-5` (see step 10) so it doesn't even fire outside the active window in the first place; this runtime check is the backstop for any sessions that still have an older 24/7 cron expression.
+The cron is scheduled with `13 7 * * 1-5` (once at 7:13 am weekdays — see step 10) so it doesn't fire outside the active window or on weekends in the first place; this runtime check is the backstop for any sessions still running an older hourly cron expression.
 
 ### 3. Check the user-activity marker (background loop only)
 
 If running in the background loop (the cron-fired `/gather-context`), check the mtime of `~/.claude/.last-user-activity`:
 
-- If the file does not exist OR its mtime is older than 1 hour, **exit immediately without notifying the user**. There is no point gathering when no one is around to use the result.
+- If the file does not exist OR its mtime is older than **24 hours**, **exit immediately without notifying the user**. There's no point gathering when the user has been away for a full day (vacation, weekend trip, etc.) — they'll run a catch-up manually when they're back.
 - Otherwise, proceed normally.
+
+The 24-hour threshold is intentionally lenient because the cron now fires only once per weekday morning. A tighter window (the old 1-hour rule) would punish "user took a break before 7:13 am" and lose the day's gather entirely.
 
 The marker file is touched by a `UserPromptSubmit` hook in `~/.claude/settings.json` whenever the user types a prompt (the hook filters out prompts that begin with `/gather-context` so cron-injected gathers never refresh it). See the "Setup" section below.
 
@@ -225,7 +227,7 @@ Manual `/gather-context` doubles as "resume" after `/pause`. To make that work �
 2. Otherwise, read the lease file:
    - **If it exists, owner is a different session, and `last_heartbeat` is within the last 24 hours**: another live session owns the schedule. Do NOT create a cron here. (No message — the user will share that session's data.)
    - **If it doesn't exist, the heartbeat is stale (older than 24 hours), or it already names this session**: claim the lease (write `owner_session=$CLAUDE_SESSION_ID`, `last_heartbeat=<now>`) and create the cron with `CronCreate`:
-     - `cron`: `13 6-19 * * 1-5`
+     - `cron`: `13 7 * * 1-5` (7:13 am local, weekdays only — once-a-day morning gather)
      - `prompt`: `/gather-context <project>`
      - `recurring`: `true`
 

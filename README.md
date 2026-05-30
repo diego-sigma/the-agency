@@ -78,7 +78,7 @@ Once installed, the following commands are available globally — start Claude C
 | Command | What it does |
 |---------|--------------|
 | `/new-project <name>` | Create a new project. Asks for sources (Slack, GitHub, Jira) and team members, scaffolds the vault layout, and offers to link the session. |
-| `/link-project <name>` | Bind the current session to a project. Loads the wiki as agent context, runs an immediate context gather, and starts a silent hourly background refresh. All other commands default to this project. |
+| `/link-project <name>` | Bind the current session to a project. Loads the wiki as agent context, runs an immediate context gather, and schedules a silent weekday-morning auto-refresh (7:13 am local). All other commands default to this project. |
 | `/unlink-project` | Disconnect the current session from its project. |
 | `/update-project [name]` | Sync framework updates (new personas, new wiki pages, new directories) into an existing project without touching your customizations. |
 
@@ -86,7 +86,7 @@ Once installed, the following commands are available globally — start Claude C
 
 | Command | What it does |
 |---------|--------------|
-| `/gather-context [name]` | Pull fresh data from Slack, GitHub, and Jira. Appends to the live log, compacts older tiers, and rewrites `wiki/activity.md`. Runs automatically every hour while a session is linked, but skips if the user has been idle for over an hour (gated by a `UserPromptSubmit` hook installed by `/link-project`). Manual invocation always proceeds and also resumes from a paused state with a catch-up gather. |
+| `/gather-context [name]` | Pull fresh data from Slack, GitHub, and Jira. Appends to the live log, compacts older tiers, and rewrites `wiki/activity.md`. Runs automatically once per weekday morning (7:13 am local) while a session is linked, and skips if the user has been idle for >24 hours (gated by a `UserPromptSubmit` hook installed by `/link-project`). Manual invocation always proceeds and also resumes from a paused state with a catch-up gather. |
 | `/pause [name]` | Pause auto-refresh for a project. The background loop keeps firing but each gather is a no-op until you run `/gather-context` manually. |
 | `/daily-digest [name]` | Pat synthesizes a short daily summary — what happened, what needs attention, what's coming up. Gathers fresh data first. |
 

@@ -1,6 +1,6 @@
 ---
 name: pause
-description: Cancels the scheduled auto-gather cron job for a project. The hourly background gather stops firing until /gather-context is run manually, which both runs a catch-up gather and recreates the cron.
+description: Cancels the scheduled auto-gather cron job for a project. The daily morning background gather stops firing until /gather-context is run manually, which both runs a catch-up gather and recreates the cron.
 ---
 
 # Pause
@@ -36,7 +36,7 @@ If at least one job was cancelled:
 ```
 Auto-gathering for <project> cancelled.
 
-The hourly cron has been removed from this session. Run /gather-context manually whenever you want to refresh — it will run a catch-up gather AND recreate the cron, restarting the auto-loop.
+The daily morning cron has been removed from this session. Run /gather-context manually whenever you want to refresh — it will run a catch-up gather AND recreate the cron, restarting the auto-loop.
 
 To stop entirely without resuming on next /gather-context, use /unlink-project.
 ```

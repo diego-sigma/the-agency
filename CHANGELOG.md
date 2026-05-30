@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README "Prerequisites" lists the Google Drive MCP and explains the per-project checklist
 
 ### Changed
+- Auto-gather runs **once per weekday morning** instead of hourly. The cron is now `13 7 * * 1-5` (7:13 am local Mon–Fri) — a single daily gather rather than the previous hourly polling between 6 am and 7 pm. The runtime hour/weekend backstop in `/gather-context` is unchanged but is now largely redundant (kept for sessions still running the older hourly cron). The idle-skip threshold is bumped from **1 hour → 24 hours** so a user who steps away briefly before 7:13 am doesn't lose the day's gather; only multi-day absences (vacation, weekend trips) cause a skip. Manual `/gather-context` always proceeds and re-arms the cron, unchanged.
+
+
 - Framework is now cwd-independent. Runtime state moved out of the repo:
   - `.the-agency-config` → `~/.claude/the-agency-config` (key=value: `vault=`, `repo=`)
   - `.the-agency-sessions/` → `~/.claude/the-agency-sessions/`

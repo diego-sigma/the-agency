@@ -47,7 +47,7 @@ Run `/gather-context` for the project right away so the team starts with fresh d
 
 ### 5. Start background context loop (one schedule per project, not per session)
 
-The auto-gather schedule is **project-scoped**: only one session at a time should own the cron for a given project. Without this, two sessions linked to the same project would both fire the gather every hour and duplicate the work.
+The auto-gather schedule is **project-scoped**: only one session at a time should own the cron for a given project. Without this, two sessions linked to the same project would both fire the gather every morning and duplicate the work.
 
 Coordinate via a lease file at `~/.claude/the-agency-sessions/<project>.scheduler` containing two lines:
 
@@ -62,9 +62,9 @@ last_heartbeat=<ISO 8601 UTC>
 - If the file exists, owner is a different session, and `last_heartbeat` is **within the last 24 hours**, **another live session owns the schedule** — do NOT create a cron in this session. Tell the user in step 7: "Auto-gather already scheduled by another session for this project — this session will share the data."
 - If the file is missing, OR owner is another session but `last_heartbeat` is older than 24 hours (the previous owner's session probably ended), claim the lease ourselves: rewrite the file with `owner_session=$CLAUDE_SESSION_ID` and `last_heartbeat=<now>`, then create the cron below.
 
-**Cron expression** (respects quiet hours and weekends — no gathers between 8 pm and 6 am local, or on Sat/Sun):
+**Cron expression** (once per weekday morning — no hourly polling, no weekend runs):
 
-- `cron`: `13 6-19 * * 1-5` (hourly at :13, weekdays only, 6 am – 7 pm local)
+- `cron`: `13 7 * * 1-5` (7:13 am local, weekdays only — fires once Mon–Fri, then sleeps until the next weekday)
 - `prompt`: `/gather-context <project>`
 - `recurring`: `true`
 
@@ -137,7 +137,7 @@ Linked to <project>. The team is ready:
 - Debug Bot 500 (Code Reviewer)
 - Pat (Project Manager)
 
-Context gathered. Auto-refreshing every hour.
+Context gathered. Auto-refresh: weekday mornings at 7:13 am local.
 All commands will now use this project's context automatically.
 Use /unlink-project to disconnect.
 
