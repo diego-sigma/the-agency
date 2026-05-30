@@ -16,7 +16,7 @@ Define agent personas with distinct personalities, point them at your project's 
 | **Earl** | Senior Engineer | Energetic, opinionated, thorough. Drives implementation. Bias toward action. |
 | **Debug Bot 500** | Code Reviewer | Relentless review machine. Categorizes findings by severity. Zero emotion. |
 | **Pat** | Project Manager | Calm, organized, always knows what's going on. Keeps the team aligned. |
-| **Lance** | PR Specialist | Craftsman of pull requests. Calm, methodical, surgical. Drafts descriptions matching the team's house style and pre-flights diffs against per-repo best practices. |
+| **Parker Reeves** | PR Specialist (P.R., yes the initials are the joke) | Craftsman of pull requests. Calm, methodical, surgical. Drafts descriptions matching the team's house style and pre-flights diffs against per-repo best practices. |
 
 Tasks are routed to the right agent automatically:
 
@@ -26,7 +26,7 @@ Tasks are routed to the right agent automatically:
 | Code or PR reviews | Debug Bot 500 → Steve |
 | Plans (implementation, architecture, strategy) | Earl + Steve |
 | Project questions (status, who, what, when, why) | Pat |
-| Drafting a PR / pre-flighting a diff | Lance |
+| Drafting a PR / pre-flighting a diff | Parker |
 
 ## Prerequisites
 
@@ -102,7 +102,7 @@ Once installed, the following commands are available globally — start Claude C
 | Command | What it does |
 |---------|--------------|
 | `/team-review <PR>` | Run a PR through the multi-agent review pipeline: Debug Bot 500 (correctness/security/edge cases) → Steve (architecture/long-term implications). Reviews are saved to the vault and you decide whether to post to GitHub. |
-| `/lance` | Lance drafts a PR description for your current branch in the target repo's house style (sampled from past PRs) and pre-flights the diff for missed best practices. Per-repo profiles live in `templates/pr-author/<repo>.md`. Outputs are advisory — Lance never pushes. |
+| `/parker` | Parker drafts a PR description for your current branch in the target repo's house style (sampled from past PRs) and pre-flights the diff for missed best practices. Per-repo profiles live in `templates/pr-author/<repo>.md`. Outputs are advisory — Parker never pushes. |
 | `/earl-learn [repo]` | Mine your authored, merged PRs in a Sigma repo for review comments that you accepted (thread resolved, no pushback). Cluster into themes and write them to `<vault>/earl-lessons/<repo>.md`. Earl reads that file whenever he's spawned on a task touching that repo — so he learns not to repeat the same mistakes. Bootstrap on first run; incremental refresh thereafter (manifest cursor at `<repo>.analyzed.json`). Lessons are repo-scoped, not project-scoped. |
 | `/todo` | List the project's to-do items so you can pick what to work on. |
 | `/todo <task>` | Add a new to-do. Agents never modify to-dos — only you can. |

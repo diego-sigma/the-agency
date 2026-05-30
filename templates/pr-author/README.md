@@ -1,6 +1,6 @@
 # PR Author profiles
 
-Per-repo profiles consumed by **Lance** (the PR specialist persona — `templates/personas/lance.md`) when drafting PR descriptions and pre-flighting diffs.
+Per-repo profiles consumed by **Parker** (the PR specialist persona — `templates/personas/parker.md`) when drafting PR descriptions and pre-flighting diffs.
 
 Each profile is a markdown file named after the short repo name (the last segment of `<org>/<repo>`):
 
@@ -17,7 +17,7 @@ Every profile has two top-level sections:
 
 ### 1. PR description style
 
-The "house style" Lance mimics when drafting a description. Should include:
+The "house style" Parker mimics when drafting a description. Should include:
 
 - **Typical structure**: section headings in order of frequency (e.g., `## Summary`, `## Test plan`, `## Screenshots`, `## Risk`).
 - **Length**: median word count for descriptions, range, what "long" vs "short" looks like in this repo.
@@ -26,7 +26,7 @@ The "house style" Lance mimics when drafting a description. Should include:
 - **Reviewer mentions / cc lists**: convention for tagging.
 - **Labels**: commonly applied labels and their meanings.
 - **Anti-patterns**: things to avoid.
-- **Skeleton**: a fill-in-the-blanks template Lance can clone.
+- **Skeleton**: a fill-in-the-blanks template Parker can clone.
 
 ### 2. Best-practice critiques
 
@@ -35,7 +35,7 @@ A list of recurring critique patterns reviewers leave in this repo, each with:
 - **Theme name** (e.g. "Missing tests", "Feature flag wrapping").
 - **What reviewers typically say** (1–2 representative quotes).
 - **How to detect it in a diff** (file glob, language feature, code pattern).
-- **Severity** Lance should assign when found (block PR / flag for reviewer / nit).
+- **Severity** Parker should assign when found (block PR / flag for reviewer / nit).
 
 Patterns appearing ≥3 times across the analyzed PR sample qualify. Ranked by frequency.
 
