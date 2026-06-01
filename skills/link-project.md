@@ -43,64 +43,9 @@ This allows multiple sessions to be linked to the same project (or different pro
 
 ### 4. Gather context immediately
 
-Run `/gather-context` for the project right away so the team starts with fresh data.
+Run `/gather-context` for the project right away so the team starts with fresh data. The gather skill will also surface its sources and ask if anything new should be added to the project (see `/gather-context` step 7). After that, future gathers are auto-triggered on user interaction when `last_gathered` is >24 hours stale (see CLAUDE.md "Active project"). There is no recurring cron — no separate scheduler step here.
 
-### 5. Start background context loop (one schedule per project, not per session)
-
-The auto-gather schedule is **project-scoped**: only one session at a time should own the cron for a given project. Without this, two sessions linked to the same project would both fire the gather every morning and duplicate the work.
-
-Coordinate via a lease file at `~/.claude/the-agency-sessions/<project>.scheduler` containing two lines:
-
-```
-owner_session=<session-id>
-last_heartbeat=<ISO 8601 UTC>
-```
-
-**Before scheduling, check the lease:**
-
-- If the file exists and `owner_session == $CLAUDE_SESSION_ID`, we already own it — refresh `last_heartbeat` to now and skip creating a new cron (one already exists for us).
-- If the file exists, owner is a different session, and `last_heartbeat` is **within the last 24 hours**, **another live session owns the schedule** — do NOT create a cron in this session. Tell the user in step 7: "Auto-gather already scheduled by another session for this project — this session will share the data."
-- If the file is missing, OR owner is another session but `last_heartbeat` is older than 24 hours (the previous owner's session probably ended), claim the lease ourselves: rewrite the file with `owner_session=$CLAUDE_SESSION_ID` and `last_heartbeat=<now>`, then create the cron below.
-
-**Cron expression** (once per weekday morning — no hourly polling, no weekend runs):
-
-- `cron`: `13 7 * * 1-5` (7:13 am local, weekdays only — fires once Mon–Fri, then sleeps until the next weekday)
-- `prompt`: `/gather-context <project>`
-- `recurring`: `true`
-
-Use `CronCreate` directly. The /loop skill only accepts duration intervals like `60m`, not hour/day-restricted cron expressions.
-
-The cron MUST run entirely in the background:
-
-- Do NOT notify the user when a background gather starts or finishes
-- Do NOT show progress, results, or summaries from background gathers
-- Write outputs silently to the vault (live log, wiki updates, compaction)
-- Only surface information if the user explicitly asks for it
-
-The user should never be interrupted by a background gather.
-
-### 5b. Install the user-activity hook (idempotent)
-
-Background gathers skip when the user has been idle for over an hour. This requires a `UserPromptSubmit` hook in `~/.claude/settings.json` that touches `~/.claude/.last-user-activity` on every human prompt (filtering out cron-injected `/gather-context` prompts).
-
-- Read `~/.claude/settings.json`
-- If `hooks.UserPromptSubmit` already includes a hook with `~/.claude/.last-user-activity` in its command, do nothing
-- Otherwise, add the following entry to `hooks.UserPromptSubmit` (creating the parent objects if needed). Preserve any existing hooks under that event:
-
-```json
-{
-  "hooks": [
-    {
-      "type": "command",
-      "command": "p=$(jq -r '.prompt // \"\"'); echo \"$p\" | grep -qE '^/gather-context\\b' || touch ~/.claude/.last-user-activity"
-    }
-  ]
-}
-```
-
-Do this silently — do not surface to the user unless the edit fails.
-
-### 5c. Check MCP requirements
+### 5. Check MCP requirements
 
 Compute the list of MCPs this project depends on, based on `config.md` + `knowledge/resources/`:
 
@@ -137,12 +82,12 @@ Linked to <project>. The team is ready:
 - Debug Bot 500 (Code Reviewer)
 - Pat (Project Manager)
 
-Context gathered. Auto-refresh: weekday mornings at 7:13 am local.
+Context gathered. Future gathers run automatically when you interact with this project after 24h of staleness — no recurring cron.
 All commands will now use this project's context automatically.
 Use /unlink-project to disconnect.
 
 Required for this project (verify with /mcp):
-<emit one line per required MCP from step 5c, e.g.>
+<emit one line per required MCP from step 5, e.g.>
 - claude.ai Slack — 3 channels, 2 DMs configured
 - claude.ai Atlassian — Jira project SIG
 - claude.ai Google Drive — N resources reference Drive docs

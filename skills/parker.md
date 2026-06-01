@@ -1,5 +1,5 @@
 ---
-name: lance
+name: parker
 description: Drafts a pull request description matching the target repo's house style and pre-flights the diff for missed best practices. Uses the Parker persona plus a per-repo profile under templates/pr-author/<repo>.md.
 ---
 
@@ -58,7 +58,7 @@ Print Parker's two outputs side by side:
 ══════════════════════════════════════════════════════════════════
 PR description (paste this into GitHub)
 ══════════════════════════════════════════════════════════════════
-<lance's PR description body>
+<parker's PR description body>
 
 ══════════════════════════════════════════════════════════════════
 Pre-flight notes

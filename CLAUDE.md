@@ -15,6 +15,21 @@ If a link file exists for the current session, read the `project` field to get t
 
 If no link file exists for the current session, commands require an explicit project name.
 
+### Auto-trigger `/gather-context` on stale context (24h rule)
+
+User interaction with a linked project is the **only** trigger for `/gather-context`. There is no recurring cron, no scheduled background job.
+
+On every interaction in a linked session, do this check **once per session per project** (cache the result in conversation memory so repeated prompts don't re-check the file each turn):
+
+1. Read `last_gathered` from `<vault>/projects/<project>/config.md` (it's an ISO 8601 timestamp under `## State`).
+2. If `last_gathered` is missing OR more than **24 hours** old, run `/gather-context <project>` **before answering the user's current prompt**. The gather is incremental (uses `last_gathered` as a cursor) so it's usually fast.
+3. After the gather completes, surface its output (sources pulled from + "anything new to add?" prompt per `/gather-context` step 7), then answer the user's original prompt below it.
+4. If `last_gathered` is fresh (≤24h), skip the gather and answer the user's prompt directly.
+
+The check happens at the start of the turn — once a gather has run in this session for this project, don't re-run it in the same conversation even if subsequent turns also "interact with the project". `last_gathered` getting updated to "now" makes subsequent staleness checks naturally pass.
+
+Manual `/gather-context` always runs regardless of staleness (the user explicitly asked).
+
 ## Vault location
 
 Read the vault path from the line starting with `vault=` in `~/.claude/the-agency-config`. The same file's `repo=` line points at this framework repo. If the file doesn't exist, the framework hasn't been installed yet — tell the user to run `./scripts/init.sh` from the cloned repo.
@@ -63,81 +78,15 @@ If `wiki/activity.md`'s "Last updated" timestamp is older than a day, suggest ru
 
 ## How to gather context
 
-When the user says "gather context for <project>":
+The gather flow is defined entirely in `skills/gather-context.md` — read that file for the per-source steps, compaction logic, and the post-gather "anything new?" prompt. The high-level summary:
 
-### Step 0 — Check the user-activity marker (background loop only)
+1. Read `last_gathered` from `<vault>/projects/<project>/config.md` (incremental cursor).
+2. Spawn one subagent per **configured** source (Slack / GitHub / Jira) in parallel. Skip a source if its lists are empty.
+3. Write digested results to `knowledge/live/YYYY-MM-DD.md`, fetch/refresh resources, compact live→daily and daily→weekly, rewrite `wiki/activity.md` and update `wiki.md` "Current focus".
+4. Update `last_gathered` in `config.md` to the current ISO timestamp — this is what gates the auto-trigger above.
+5. Report which sources were pulled from and ask the user if any new channels/people/repos/Jira epics should be added to the project's `config.md`.
 
-If running in the background loop, exit silently if `~/.claude/.last-user-activity` is missing or older than 1 hour. Manual `/gather-context` always proceeds.
-
-(Pause is implemented via `CronDelete` in `/pause`, not via a config flag — there is no flag to check here. To resume after a `/pause`, the user runs `/gather-context` manually, which also recreates the cron at the end.)
-
-### Step 1 — Gather fresh data
-
-Read the project's `config.md` to get the list of sources. For each source, spawn a parallel subagent:
-
-Before fetching, read `last_gathered` from the project's `config.md` State section. Use this timestamp to only fetch new data. If no timestamp exists (first gather), do a full pull (last 3 days for Slack, last 7 days for GitHub/Jira).
-
-**Slack** — For each channel and DM listed in config:
-- Use Slack MCP tools (`slack_read_channel`) to read messages since `last_gathered` (pass as `oldest` parameter)
-- For each person in the `dms` list, read DM conversations since `last_gathered` — only extract messages relevant to this project (filter by project name, repo names, ticket keys, or related keywords)
-- Digest into a structured block: key discussions, relevant DM context, decisions, action items, open questions
-
-**GitHub** — For each repo listed in config:
-- Use `gh` CLI to list all open PRs
-- For each open PR: read the description (`gh pr view`), the diff (`gh pr diff`), and review comments (`gh pr view --comments`) to fully understand what it does and where it stands
-- Get recently merged PRs and issues updated since `last_gathered`: `gh pr list --state merged --search "merged:>YYYY-MM-DDTHH:MM:SS"`, `gh issue list --search "updated:>YYYY-MM-DDTHH:MM:SS"`
-- Digest into a structured block: for each open PR summarize what it changes, its review status, and any outstanding comments. Also cover what landed recently and what needs attention
-
-**Jira** — For the project key in config:
-- Use Atlassian MCP tools (`searchJiraIssuesUsingJql`) with `updated >= "YYYY-MM-DD HH:MM"` using `last_gathered`
-- Digest into a structured block: sprint goal, ticket statuses, blockers, who's working on what
-
-After all sources are gathered, update `last_gathered` in `config.md` to the current timestamp.
-
-### Step 2 — Write to live log
-
-Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp:
-
-```markdown
-## HH:MM
-
-### Slack
-(digested slack data)
-
-### GitHub
-(digested github data)
-
-### Jira
-(digested jira data)
-```
-
-If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
-
-### Step 3 — Compact older tiers
-
-**Live → Daily:** Check if there are live files from previous days that don't have a corresponding daily summary. For each:
-- Read the target day's live file AND the surrounding 1-2 live files for context
-- Spawn an agent to produce a daily summary that captures what mattered, informed by surrounding days
-- Write to `knowledge/daily/YYYY-MM-DD.md`
-
-**Daily → Weekly:** Check if there's a completed calendar week (Mon-Sun) with daily summaries but no weekly summary:
-- Read that week's daily summaries
-- Spawn an agent to produce a weekly summary
-- Write to `knowledge/weekly/YYYY-WNN.md`
-
-**Cleanup:** Delete live files older than 7 days.
-
-### Step 4 — Update the wiki
-
-Update the project wiki from the freshly gathered data. The wiki is the agents' primary context, so it must reflect current state. See the "Project wiki" section below for details on what to update and how.
-
-In particular, always rewrite `wiki/activity.md` in full from:
-- Today's `knowledge/live/YYYY-MM-DD.md` (full granularity for today)
-- The last 7 `knowledge/daily/` files (recent summarized history)
-- The latest `knowledge/weekly/` file (broader context)
-- Recent `knowledge/sessions/` files (decisions and actions)
-
-Also update the "Current focus" section of `wiki.md` and any other wiki pages that have new relevant information.
+The trigger is always user-driven: either manual `/gather-context`, or auto-triggered when a linked session detects `last_gathered` >24h stale (see "Active project" above). No cron, no scheduled background job.
 
 ## Project wiki
 

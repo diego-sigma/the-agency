@@ -1,118 +1,58 @@
 ---
 name: gather-context
-description: Gathers latest context from Slack, GitHub, and Jira for a project, writes to the live log, compacts older tiers, and rewrites wiki/activity.md
+description: Pulls fresh data from a project's configured sources (Slack, GitHub, Jira, Drive resources), writes to the live log, compacts older tiers, rewrites wiki/activity.md, and prompts the user to add any new sources. Auto-triggered when a linked session is active and last_gathered is >24h stale; otherwise invoked manually.
 ---
 
 # Gather Context
 
 ## Trigger
 
-User says "gather context for <project>" or "update context for <project>".
+- User says "gather context for <project>" or "update context for <project>".
+- Auto-triggered from the framework's CLAUDE.md "Active project" rule when a linked session has `last_gathered` older than 24 hours (see CLAUDE.md). Auto and manual flows are identical.
 
 ## Steps
 
 ### 1. Resolve the project
 
-- Read vault path from `~/.claude/the-agency-config`
-- Read `<vault>/projects/<project>/config.md`
-- If the project doesn't exist, tell the user and list available projects
+- Read vault path from the `vault=` line of `~/.claude/the-agency-config`.
+- Read `<vault>/projects/<project>/config.md`.
+- If the project doesn't exist, tell the user and list available projects.
 
-### 2. Check quiet hours and weekends (background loop only)
+### 2. Gather from each source (in parallel)
 
-The scheduled (background) gather does not fire between **8:00 pm and 6:00 am local time** or on **Saturdays or Sundays**. Manual `/gather-context` always proceeds — the user typed it, they want it.
+Read `last_gathered` from `config.md`'s State section. Use this as the cursor for incremental fetches. If empty (first gather), do a full pull (last 3 days for Slack, last 7 days for GitHub/Jira).
 
-If running in the background loop:
-
-```
-hour=$(date +%H)         # 00..23
-dow=$(date +%u)          # 1=Mon ... 7=Sun
-```
-
-- If `dow >= 6` (Sat/Sun) OR `hour < 6` OR `hour >= 20`, **exit silently** — no log entry, no wiki update.
-- Otherwise, proceed.
-
-This step is skipped entirely in foreground (manual invocation always runs).
-
-The cron is scheduled with `13 7 * * 1-5` (once at 7:13 am weekdays — see step 10) so it doesn't fire outside the active window or on weekends in the first place; this runtime check is the backstop for any sessions still running an older hourly cron expression.
-
-### 3. Check the user-activity marker (background loop only)
-
-If running in the background loop (the cron-fired `/gather-context`), check the mtime of `~/.claude/.last-user-activity`:
-
-- If the file does not exist OR its mtime is older than **24 hours**, **exit immediately without notifying the user**. There's no point gathering when the user has been away for a full day (vacation, weekend trip, etc.) — they'll run a catch-up manually when they're back.
-- Otherwise, proceed normally.
-
-The 24-hour threshold is intentionally lenient because the cron now fires only once per weekday morning. A tighter window (the old 1-hour rule) would punish "user took a break before 7:13 am" and lose the day's gather entirely.
-
-The marker file is touched by a `UserPromptSubmit` hook in `~/.claude/settings.json` whenever the user types a prompt (the hook filters out prompts that begin with `/gather-context` so cron-injected gathers never refresh it). See the "Setup" section below.
-
-This step is skipped entirely in foreground (manual `/gather-context`) — manual invocation always proceeds.
-
-### 4. Check / refresh the scheduler lease (background loop only)
-
-The auto-gather schedule is owned by one session per project (see `/link-project` step 5). Before doing any work in the background loop, verify we still own the lease at `~/.claude/the-agency-sessions/<project>.scheduler`:
-
-- Read `owner_session=` and `last_heartbeat=` from the lease file.
-- **If we own it** (`owner_session == $CLAUDE_SESSION_ID`): refresh `last_heartbeat` to the current ISO 8601 UTC timestamp and proceed.
-- **If someone else owns it and `last_heartbeat` is within the last 24 hours**: another session has taken over scheduling. Cancel **our** cron via `CronList` + `CronDelete` (looking for the job with prompt `/gather-context <project>`) and exit silently. This is the "two sessions briefly raced" cleanup path.
-- **If the lease is stale (heartbeat older than 24 hours) or the file is missing**: claim it for ourselves by writing `owner_session=$CLAUDE_SESSION_ID` and `last_heartbeat=<now>`, then proceed.
-
-This step is skipped entirely in foreground (manual invocation does not interact with the lease and never schedules anything new).
-
-### 5. Gather from each source (in parallel)
-
-Read `last_gathered` from config.md's State section. Use this as the cursor for incremental fetches. If empty (first gather), do a full pull (last 3 days for Slack, last 7 days for GitHub/Jira).
-
-Spawn one subagent per source, passing the `last_gathered` timestamp.
+Spawn one subagent per **configured** source (skip sources that are empty in `config.md` — no point spawning a Slack subagent if `channels:` and `dms:` are both empty).
 
 **Slack subagent:**
-- Read the `channels` and `dms` lists from config.md
-- For each channel, use `slack_read_channel` MCP tool to read messages since `last_gathered` (pass as `oldest` parameter). On first gather, use last 3 days.
-- For each person in the `dms` list, use Slack MCP tools to read DM conversations since `last_gathered` — only extract messages relevant to this project (filter by project name, repo names, ticket keys, or related keywords)
-- Digest into a structured summary:
-  - Key discussions and their conclusions (from channels)
-  - Relevant DM context (decisions, asks, updates exchanged with team members)
-  - Decisions made
-  - Action items mentioned
-  - Open questions
-  - Important announcements
+- Read the `channels` and `dms` lists from config.md.
+- For each channel, use `slack_read_channel` MCP tool to read messages since `last_gathered` (pass as `oldest`). On first gather, use last 3 days.
+- For each person in `dms`, use Slack MCP tools to read DM conversations since `last_gathered` — only extract messages relevant to this project (filter by project name, repo names, ticket keys, related keywords).
+- Digest into a structured summary: key discussions + decisions, relevant DM context, action items, open questions, important announcements.
 
 **GitHub subagent:**
-- Read the `repos` list from config.md
+- Read the `repos` list from config.md.
 - For each repo, use `gh` CLI:
   - `gh pr list --state open` — list all open PRs
-  - For each open PR:
-    - `gh pr view <number>` — read the description, author, labels, review status, CI status
-    - `gh pr diff <number>` — read the diff to understand what the PR changes
-    - `gh pr view <number> --comments` — read review comments and discussion
-  - `gh pr list --state merged --search "merged:>LAST_GATHERED_ISO"` — merged since last gather
-  - `gh issue list --search "updated:>LAST_GATHERED_ISO"` — issues updated since last gather
-- Digest into a structured summary:
-  - **Open PRs** — for each: what it does (from description + diff), author, age, review status, CI status, key review comments or requested changes
-  - Recently merged PRs (what landed and why)
-  - Open issues by priority/label
-  - Any PRs that are stale, blocked, or need attention
+  - For each open PR: `gh pr view <num>` (description, author, labels, review status, CI), `gh pr diff <num>`, `gh pr view <num> --comments`
+  - `gh pr list --state merged --search "merged:>LAST_GATHERED_ISO"`
+  - `gh issue list --search "updated:>LAST_GATHERED_ISO"`
+- Digest: open PRs (what each does + review status + key comments), recently merged, open issues by priority/label, stale/blocked PRs.
 
 **Jira subagent:**
-- Read the `project_key` and `epics:` list from config.md.
-- Build a **scope clause** for the JQL queries:
-  - If `epics:` is non-empty, scope to those epics and their children: `(key in (EPIC1, EPIC2, …) OR "Epic Link" in (EPIC1, EPIC2, …) OR parent in (EPIC1, EPIC2, …))`. This covers classic ("Epic Link") and next-gen ("parent") project types, and includes the epic tickets themselves so you can see epic-level status.
-  - Else if `project_key` is set, scope to the whole project in open sprints: `project = <KEY> AND sprint in openSprints()`.
+- Read `project_key` and `epics:` from config.md.
+- Build scope clause:
+  - If `epics:` non-empty: `(key in (E1, E2, …) OR "Epic Link" in (E1, …) OR parent in (E1, …))`
+  - Else if `project_key` set: `project = <KEY> AND sprint in openSprints()`
   - Else skip Jira entirely.
-- Use Atlassian MCP tools (`searchJiraIssuesUsingJql`) with the scope clause:
-  - `<SCOPE> AND updated >= "LAST_GATHERED_DATETIME"` — tickets updated since last gather
-  - `<SCOPE> AND status = Blocked` — blocked items within scope (always fetch all)
-- Digest into a structured summary:
-  - Epics being tracked (from `epics:`) and their current status
-  - Tickets by status (To Do / In Progress / In Review / Done) grouped by parent epic
-  - Blocked items with blockers
-  - Who's working on what
+- `searchJiraIssuesUsingJql` with `<SCOPE> AND updated >= "LAST_GATHERED_DATETIME"` plus `<SCOPE> AND status = Blocked` for all blockers.
+- Digest: epics + statuses, tickets grouped by status, blockers + who's working on what.
 
-After all subagents complete, update `last_gathered` in config.md to the current ISO timestamp (e.g., `2026-04-11T14:30:00Z`).
+After all subagents complete, update `last_gathered` in `config.md` to the current ISO timestamp (e.g. `2026-05-31T14:30:00Z`). **This timestamp is what gates the 24-hour auto-trigger** — keep it accurate.
 
-### 6. Write to live log
+### 3. Write to live log
 
-Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp header:
+Append to `<vault>/projects/<project>/knowledge/live/YYYY-MM-DD.md` with a timestamp header:
 
 ```markdown
 ## HH:MM
@@ -127,59 +67,39 @@ Append the gathered data to `knowledge/live/YYYY-MM-DD.md` with a timestamp head
 (digested jira data)
 ```
 
-If the file doesn't exist yet, create it with a `# YYYY-MM-DD` heading first.
+Create the file with a `# YYYY-MM-DD` heading if it doesn't exist.
 
-### 7. Fetch and refresh resources
+### 4. Fetch and refresh resources
 
-**New links:** Review the gathered data from step 2 for any links (URLs in Slack messages, PR descriptions, Jira ticket comments, etc.). For each link:
+**New links:** scan the gathered data for URLs. For each that's relevant (design docs, RFCs, API docs, architecture diagrams — not login pages / dashboards / CI logs) and not already saved:
 
-- **Is it relevant to the project?** (design docs, RFCs, API docs, architecture diagrams, related articles — YES. Login pages, CI logs, dashboards, generic tool links — NO.)
-- **Is it already saved?** Check `knowledge/resources/` for an existing file with the same URL in its frontmatter.
-- If relevant and not already saved, fetch the content:
-  - **Google Drive URL** (`docs.google.com/document/d/<id>`, `docs.google.com/spreadsheets/d/<id>`, `drive.google.com/file/d/<id>`, `docs.google.com/presentation/d/<id>`): extract `<id>`, call `mcp__claude_ai_Google_Drive__get_file_metadata` for `modifiedTime`, then `mcp__claude_ai_Google_Drive__read_file_content` for the body. Save with `drive_file_id` and `drive_modified_time` in frontmatter alongside `url` and `fetched`.
-  - **Otherwise**: use `WebFetch`.
-- If it can't be fetched (auth wall, 404), save a stub with the URL and reason.
-- Link to the resource from the live log entry: `See [[resources/<slug>]]`.
+- **Google Drive URL** (`docs.google.com/document/d/<id>`, `drive.google.com/file/d/<id>`, etc.): extract `<id>`, call `mcp__claude_ai_Google_Drive__get_file_metadata` for `modifiedTime`, then `mcp__claude_ai_Google_Drive__read_file_content` for the body. Save with `drive_file_id` and `drive_modified_time` in frontmatter alongside `url` and `fetched`.
+- **Otherwise**: use `WebFetch`.
 
-**Existing resources:** Scan all files in `knowledge/resources/`. For each file that has a `url` property in its frontmatter:
+If unfetchable (auth wall, 404), save a stub with the URL and reason. Link from the live log: `See [[resources/<slug>]]`.
 
-- The URL is the **source of truth** — the local file is a cached copy.
-- **If the resource has a `drive_file_id` in frontmatter** (Drive doc):
-  - Call `mcp__claude_ai_Google_Drive__get_file_metadata` with `excludeContentSnippets: true` — a tiny metadata-only call.
-  - If the returned `modifiedTime` is equal to the stored `drive_modified_time`, **skip entirely** (no body fetch, no rewrite).
-  - Otherwise call `mcp__claude_ai_Google_Drive__read_file_content`, update the body, and update both `drive_modified_time` and `fetched` in frontmatter.
-- **Otherwise (non-Drive URL)**:
-  - Re-fetch the URL using `WebFetch`.
-  - If the content has changed, update the markdown body and set `fetched` to today's date.
-  - If the content is the same, skip (don't rewrite the file).
-- If the fetch fails (auth wall, 404, timeout), leave the existing content and add a note: `<!-- refresh failed: YYYY-MM-DD — reason -->`.
+**Existing resources:** for each file in `knowledge/resources/` with a `url` property:
 
-### 8. Compact older tiers
+- **If `drive_file_id` is in frontmatter**: call `get_file_metadata` with `excludeContentSnippets: true`. If `modifiedTime == drive_modified_time`, **skip** (no fetch, no rewrite). Otherwise `read_file_content`, update body, update both `drive_modified_time` and `fetched`.
+- **Otherwise (non-Drive URL)**: `WebFetch`. If content changed, update body + `fetched`. If same, skip.
+- On fetch failure, leave existing content and add a note: `<!-- refresh failed: YYYY-MM-DD — reason -->`.
 
-**Live → Daily:**
-- Check `knowledge/live/` for files from previous days that don't have a matching `knowledge/daily/YYYY-MM-DD.md`
-- For each, read the target day's live file AND 1-2 surrounding live files for context
-- Spawn an agent to produce a daily summary capturing what mattered
-- Write to `knowledge/daily/YYYY-MM-DD.md`
+### 5. Compact older tiers
 
-**Daily → Weekly:**
-- Check if there's a completed calendar week (Mon-Sun) with daily summaries but no matching `knowledge/weekly/YYYY-WNN.md`
-- Read that week's daily summaries
-- Spawn an agent to produce a weekly summary
-- Write to `knowledge/weekly/YYYY-WNN.md`
+**Live → Daily:** for any `knowledge/live/YYYY-MM-DD.md` from a previous day without a matching `knowledge/daily/YYYY-MM-DD.md`: read it + 1–2 surrounding live files, spawn an agent to produce a daily summary, write to `knowledge/daily/YYYY-MM-DD.md`.
 
-**Cleanup:**
-- Delete `knowledge/live/` files older than 7 days
+**Daily → Weekly:** if a completed calendar week (Mon–Sun) has dailies but no `knowledge/weekly/YYYY-WNN.md`: read the week's dailies, spawn an agent to summarize, write to `knowledge/weekly/YYYY-WNN.md`.
 
-### 9. Update the wiki
+**Cleanup:** delete `knowledge/live/` files older than 7 days.
 
-The wiki is the primary context for agents, so it must reflect current state after every gather.
+### 6. Update the wiki
 
-**Rewrite `wiki/activity.md` in full.** This page is always included when agents are spawned, so it MUST be current. Source material:
+**Rewrite `<vault>/projects/<project>/wiki/activity.md` in full.** This page is always included when agents spawn, so it MUST be current. Source material:
+
 - Today's `knowledge/live/YYYY-MM-DD.md` — full granularity
-- Last 7 `knowledge/daily/` files — recent summarized history
-- Latest `knowledge/weekly/` file — broader context
-- Recent `knowledge/sessions/` files — decisions and actions
+- Last 7 `knowledge/daily/` files
+- Latest `knowledge/weekly/` file
+- Recent `knowledge/sessions/` files
 
 Structure:
 
@@ -192,68 +112,46 @@ Structure:
 (synthesized from today's live log + recent daily summaries)
 
 ## Slack
-(key discussions, decisions, action items)
-
 ## GitHub
-(open PRs with status, recently merged work, notable issues)
-
 ## Jira
-(sprint goal, ticket statuses, blockers)
-
 ## Notable sessions
-(recent session notes worth surfacing — links to [[sessions/YYYY-MM-DD-slug]])
 ```
 
-**Update the "Current focus" section in `wiki.md`** — a short summary of what the team is working on right now, based on the freshly gathered data.
+**Update `wiki.md` "Current focus"** — short summary of what the team is working on now.
 
-**Review other wiki pages** and update any that have new information:
-- New team members mentioned? → update `wiki/team.md`
-- Architecture changes in PRs or discussions? → update `wiki/architecture.md`
-- Key decisions made? → add to `wiki/decisions.md`
-- New terms or acronyms used? → add to `wiki/glossary.md`
-- Process changes discussed? → update `wiki/workflows.md`
+**Review other wiki pages** and update any with new info: new team members → `wiki/team.md`; architecture changes → `wiki/architecture.md`; key decisions → `wiki/decisions.md`; new terms → `wiki/glossary.md`; process changes → `wiki/workflows.md`. Wiki pages reflect current state; don't append history.
 
-If a topic doesn't fit existing pages, create a new wiki page and link it from `wiki.md`.
+### 7. Report sources and ask about additions
 
-Wiki pages (other than `wiki/activity.md`) reflect **current state** — update in place, don't append history.
+Tell the user where context was gathered FROM, then ask if anything new should be tracked. Format:
 
-### 10. Re-arm the auto-loop (foreground only)
-
-**Skip this step in the background loop** — it would no-op anyway because the cron is already firing.
-
-Manual `/gather-context` doubles as "resume" after `/pause`. To make that work — but without stomping on another session that already owns the schedule for this project — check both the local cron and the project's scheduler lease at `~/.claude/the-agency-sessions/<project>.scheduler`:
-
-1. **`CronList`** in this session. If a job with `prompt` exactly equal to `/gather-context <project>` already exists here, do nothing.
-2. Otherwise, read the lease file:
-   - **If it exists, owner is a different session, and `last_heartbeat` is within the last 24 hours**: another live session owns the schedule. Do NOT create a cron here. (No message — the user will share that session's data.)
-   - **If it doesn't exist, the heartbeat is stale (older than 24 hours), or it already names this session**: claim the lease (write `owner_session=$CLAUDE_SESSION_ID`, `last_heartbeat=<now>`) and create the cron with `CronCreate`:
-     - `cron`: `13 7 * * 1-5` (7:13 am local, weekdays only — once-a-day morning gather)
-     - `prompt`: `/gather-context <project>`
-     - `recurring`: `true`
-
-This is silent — the user typed `/gather-context` to refresh, not to manage cron. Only mention recreation if you also surfaced something else worth noting (a new commit, a freshly-paused project resuming, etc.).
-
-### 11. Report to user
-
-**Only if running in the foreground** (i.e., the user explicitly asked to gather context). If this gather was triggered by a background loop, skip this step entirely — do not notify the user.
-
-When reporting, tell the user what was gathered, any compaction that happened, wiki pages updated, and notable findings (e.g., "3 PRs awaiting review", "2 blocked tickets", "updated wiki/team.md with new member"). If the cron was recreated in step 10 (resuming after a `/pause`), mention that briefly.
-
-## Setup: user-activity hook (one-time)
-
-For step 3 (the user-activity marker check) to work, `~/.claude/settings.json` must include a `UserPromptSubmit` hook that touches `~/.claude/.last-user-activity` on every human prompt **except** prompts that begin with `/gather-context` (so cron-injected gathers don't refresh the marker themselves). The `/link-project` skill installs this hook automatically; if it's missing, add this block under `hooks`:
-
-```json
-"hooks": {
-  "UserPromptSubmit": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "p=$(jq -r '.prompt // \"\"'); echo \"$p\" | grep -qE '^/gather-context\\b' || touch ~/.claude/.last-user-activity"
-        }
-      ]
-    }
-  ]
-}
 ```
+Context refreshed for <project>. Pulled from:
+
+  Slack:  #channel1, #channel2, #channel3
+          DMs: @alice, @bob
+  GitHub: org/repo1, org/repo2
+  Jira:   project SIG (epics: SIG-100, SIG-101)
+
+  <if any source was empty in config.md, mention it as missing — e.g.
+   "Slack: (none configured)">
+
+Anything new to add to this project? For example:
+  - new Slack channel or DM (e.g. someone joined the team, a new
+    incident channel)
+  - new GitHub repo this project touches
+  - new Jira epic to scope to, or a project_key if missing
+  - new team members whose DMs should be mined for context
+
+Reply "no" / "skip" if nothing's new. Otherwise, describe what to
+add and I'll update <vault>/projects/<project>/config.md.
+```
+
+If the user names additions, edit `config.md` directly — preserve existing values, only append. Confirm the additions in plain text afterwards.
+
+### Notes
+
+- There is **no recurring cron** for this skill. Auto-triggers come from CLAUDE.md's "Active project" rule on every user interaction in a linked session, gated by the 24-hour staleness check.
+- `gathering_paused` config field is no longer read or written. Existing inert lines in project configs are harmless.
+- The `~/.claude/.last-user-activity` marker and the `UserPromptSubmit` hook that maintains it are no longer used (cron-era artifacts). They're harmless if left in place; the hook can be removed from `~/.claude/settings.json` at the user's discretion.
+- The per-project scheduler lease at `~/.claude/the-agency-sessions/<project>.scheduler` is no longer read or written. Stale lease files can be deleted manually; they have no effect.
