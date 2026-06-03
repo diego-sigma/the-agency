@@ -16,7 +16,7 @@ Define agent personas with distinct personalities, point them at your project's 
 | **Earl** | Senior Engineer | Energetic, opinionated, thorough. Drives implementation. Bias toward action. |
 | **Debug Bot 500** | Code Reviewer | Relentless review machine. Categorizes findings by severity. Zero emotion. |
 | **Pat** | Project Manager | Calm, organized, always knows what's going on. Keeps the team aligned. |
-| **Parker Reeves** | PR Specialist (P.R., yes the initials are the joke) | Craftsman of pull requests. Calm, methodical, surgical. Drafts descriptions matching the team's house style and pre-flights diffs against per-repo best practices. |
+| **Parker Reeves** | PR Specialist | Craftsman of pull requests. Calm, methodical, surgical. Drafts descriptions matching the team's house style and pre-flights diffs against per-repo best practices. |
 
 Tasks are routed to the right agent automatically:
 

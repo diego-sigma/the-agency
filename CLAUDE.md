@@ -63,6 +63,15 @@ Read the vault path from the line starting with `vault=` in `~/.claude/the-agenc
                       regardless of which agency project is linked.
   <repo>.analyzed.json — manifest of which PR numbers have been mined; used by
                       /earl-learn for incremental refreshes.
+
+# Global (not per-project): org-wide ambient knowledge agents may consult
+<vault>/org-context/
+  sigma-sources.md  — catalog of Sigma workbooks / data models the agents can
+                      query for cross-project information (roadmap dates,
+                      project statuses, org-wide tracking). Read by every
+                      persona spawn so agents know what's available. The
+                      actual data lives in Sigma; this file just tells the
+                      agents what's there and how to query it via Sigma MCP.
 ```
 
 ## How to resolve a project
@@ -213,7 +222,8 @@ When executing a task that involves an agent persona:
    - `wiki/preferences.md` — project-specific working rules
 4. Include any other wiki pages relevant to the task (e.g., `wiki/architecture.md` for code reviews, `wiki/team.md` when asking about people)
 5. **For Earl specifically**: if the task touches a known repo (cwd is inside one, or the task explicitly mentions one) AND `<vault>/earl-lessons/<repo>.md` exists, include that lessons file in Earl's context too. These are accepted-review-comment patterns from the user's own past PRs in that repo — Earl has earned this feedback and should treat it as a checklist to avoid the same critiques. Lessons are repo-scoped, not project-scoped, and apply across every agency project that touches the same repo.
-6. The subagent should respond and behave as that persona — tone, focus areas, decision-making style
+6. **Org-wide context** — if `<vault>/org-context/sigma-sources.md` exists, include it in every persona spawn. It's a small catalog of org-wide Sigma workbooks (roadmap, project statuses, broader org tracking) that any agent can query via the production Sigma MCP (`mcp__claude_ai_Sigma_MCP__*`). When a question involves dates, statuses, what teams are shipping, or who's working on what, the agent should: (a) consult the catalog to find the right `workbookId` + `elementId`, (b) call `mcp__claude_ai_Sigma_MCP__begin_session` once if not already called this turn, (c) **always `describe` the element before `query`** — column IDs in the catalog are a snapshot and can drift when the workbook is restructured, so re-confirm them from the live DDL and match by column **label**, not by the IDs in the catalog, then (d) `query` with the confirmed IDs. The data lives in Sigma — don't try to answer from stale memory or cached wiki content.
+7. The subagent should respond and behave as that persona — tone, focus areas, decision-making style
 
 Always tell the user which agent is "speaking" when relaying output from a persona.
 
